@@ -1,0 +1,44 @@
+[project]
+name = "x-in-memory-bot"
+version = "0.1.0"
+description = "In-memory browser facade for X (Twitter) using Playwright."
+requires-python = ">=3.9"
+readme = "Docs/GitHub X Automation Browser Wrappers.md"
+authors = [{name="4bot"}]
+dependencies = [
+  "playwright>=1.45",
+  "pydantic>=2",
+  "python-dotenv>=1",
+  "typer>=0.12",
+  "rich>=13",
+  "tenacity>=8",
+  "pyotp>=2.9"
+]
+
+[project.optional-dependencies]
+dev = [
+  "ruff>=0.5",
+  "black>=24",
+]
+
+[project.scripts]
+xbot = "xbot.cli:app"
+
+[tool.pytest.ini_options]
+addopts = "-q"
+markers = [
+  "live: marks tests that hit real X.com (set X_USER/X_PASSWORD to run)"
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [".venv", "dist", "node_modules", "artifacts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = []
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]

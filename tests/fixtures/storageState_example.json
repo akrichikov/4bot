@@ -1,0 +1,23 @@
+{
+  "cookies": [
+    {
+      "name": "ct0",
+      "value": "example",
+      "domain": ".x.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "https://x.com",
+      "localStorage": [
+        { "name": "example-key", "value": "example-value" }
+      ]
+    }
+  ]
+}
+

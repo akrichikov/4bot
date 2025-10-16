@@ -1,0 +1,8 @@
+{
+  "steps": [
+    { "action": "login", "args": {} },
+    { "action": "post", "args": { "text": "Hello from playbook" }, "delay_s": 2.0 },
+    { "action": "like", "args": { "url": "1234567890123456789" } }
+  ]
+}
+

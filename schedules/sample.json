@@ -1,0 +1,12 @@
+{
+  "tasks": [
+    {
+      "playbook": "playbooks/sample.json",
+      "times": ["09:00", "13:30"],
+      "days": ["mon", "wed", "fri"],
+      "jitter_s": 10,
+      "enabled": true
+    }
+  ]
+}
+

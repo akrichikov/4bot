@@ -1,0 +1,54 @@
+from __future__ import annotations
+
+# Centralized selectors with stable-first strategy.
+PROFILE_ANCHOR = "a[aria-label='Profile'], a[aria-label='Profile menu']"
+
+# Login flow
+LOGIN_USERNAME = "input[name='text'], input[autocomplete='username']"
+LOGIN_NEXT = "div[role='button'][data-testid='LoginForm_Login_Button'], div[role='button'][data-testid='ocfEnterTextNextButton'], div[role='button'][data-testid='next_button']"
+LOGIN_PASSWORD = "input[name='password'], input[autocomplete='current-password']"
+LOGIN_SUBMIT = "div[role='button'][data-testid='LoginForm_Login_Button'], div[role='button'][data-testid='LoginForm_Submit_Button']"
+LOGIN_2FA = "input[name='text'][inputmode='numeric']"
+
+# Compose
+COMPOSE_URL = "/compose/post"
+COMPOSE_TEXTBOX = (
+    "div[role='textbox'][data-testid^='tweetTextarea_'], "
+    "div[role='textbox'][data-testid='tweetTextarea_0'], "
+    "div[contenteditable='true'][role='textbox']",
+)
+COMPOSE_SUBMIT = (
+    "div[role='button'][data-testid='tweetButtonInline'], "
+    "div[role='button'][data-testid='tweetButton'], "
+    "button[data-testid='tweetButton']",
+)
+
+# Tweet page actions
+LIKE_BUTTON = "div[data-testid='like'], button[data-testid='like']"
+RETWEET_BUTTON = "div[data-testid='retweet']"
+RETWEET_CONFIRM = "div[role='menuitem'][data-testid='retweetConfirm'], div[role='menuitem'][data-testid='retweetConfirm']"
+REPLY_BUTTON = "div[data-testid='reply'], button[data-testid='reply']"
+REPLY_TEXTBOX = COMPOSE_TEXTBOX
+REPLY_SUBMIT = COMPOSE_SUBMIT
+
+# Follow/Unfollow (on profile page)
+FOLLOW_BUTTON = (
+    "div[data-testid='placementTracking'] div[role='button'][data-testid='userActions-follow'], "
+    "div[role='button'][data-testid='follow']",
+)
+UNFOLLOW_BUTTON = (
+    "div[role='button'][data-testid='userActions-unfollow'], "
+    "div[role='button'][data-testid='unfollow']",
+)
+
+# Idempotent state markers
+UNLIKE_BUTTON = "div[data-testid='unlike']"
+UNRETWEET_BUTTON = "div[data-testid='unretweet']"
+
+# DMs
+MESSAGE_BUTTON = "div[role='button'][data-testid='sendDMFromProfile'], a[aria-label='Message'], a[aria-label^='Message']"
+DM_TEXTBOX = (
+    "div[role='textbox'][data-testid='dmComposerTextInput'], "
+    "textarea[data-testid='dmComposerTextInput']",
+)
+DM_SEND = "div[role='button'][data-testid='dmComposerSendButton'], button[data-testid='dmComposerSendButton']"
