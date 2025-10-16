@@ -92,6 +92,10 @@
                 });
             }
 
+            // Extract status URL if present
+            const statusLink = element.querySelector('a[href*="/status/"]');
+            const url = statusLink ? statusLink.href : '';
+
             // Build comprehensive notification data
             const notificationData = {
                 type: notificationType,
@@ -100,6 +104,7 @@
                 action_text: actionText,
                 content: contentText,
                 mentioned_users: mentionedUsers,
+                url: url,
                 full_text: element.textContent.substring(0, 500),
                 timestamp: new Date().toISOString()
             };

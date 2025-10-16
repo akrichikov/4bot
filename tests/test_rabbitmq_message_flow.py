@@ -10,6 +10,26 @@ from unittest.mock import Mock, MagicMock, patch, call
 from datetime import datetime
 import sys
 import os
+import re
+
+
+class _RegexEquals:
+    def __init__(self, pattern: str):
+        self.pattern = re.compile(pattern)
+
+    def __eq__(self, other):  # type: ignore[override]
+        text = other if isinstance(other, str) else str(other)
+        return bool(self.pattern.search(text))
+
+    def __repr__(self) -> str:
+        return f"~/{self.pattern.pattern}/~"
+
+
+def approx_match(pattern: str) -> _RegexEquals:
+    return _RegexEquals(pattern)
+
+
+setattr(pytest, "approx_match", approx_match)
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -185,7 +205,7 @@ class TestRabbitMQMessageFlow(BaseTestFixture):
 
             # Verify structure
             assert 'message_id' in body
-            assert 'message_type' == 'notification'
+            assert body.get('message_type') == 'notification'
             assert 'data' in body
 
     def test_command_consumer_routing(self):

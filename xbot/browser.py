@@ -63,9 +63,17 @@ class Browser:
         if self.cfg.geolocation_lat is not None and self.cfg.geolocation_lon is not None:
             geolocation = {"latitude": self.cfg.geolocation_lat, "longitude": self.cfg.geolocation_lon}
 
+        # Select browser engine (chromium|webkit|firefox)
+        name = (getattr(self.cfg, 'browser', 'chromium') or "chromium").lower()
+        engine = {
+            "chromium": playwright.chromium,
+            "webkit": playwright.webkit,
+            "firefox": playwright.firefox,
+        }.get(name, playwright.chromium)
+
         if self.cfg.persist_session:
             self.cfg.user_data_dir.mkdir(parents=True, exist_ok=True)
-            context = await playwright.chromium.launch_persistent_context(
+            context = await engine.launch_persistent_context(
                 user_data_dir=str(self.cfg.user_data_dir),
                 headless=self.cfg.headless,
                 slow_mo=self.cfg.slow_mo_ms or 0,
@@ -81,7 +89,7 @@ class Browser:
                 await context.add_cookies(await context.cookies())
             return context
         else:
-            browser = await playwright.chromium.launch(
+            browser = await engine.launch(
                 headless=self.cfg.headless, proxy=proxy, slow_mo=self.cfg.slow_mo_ms or 0
             )  # type: ignore[arg-type]
             storage_state: Optional[str | Path] = None

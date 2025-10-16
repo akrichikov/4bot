@@ -16,6 +16,11 @@ from ..selectors import (
     LOGIN_SUBMIT,
     LOGIN_USERNAME,
     PROFILE_ANCHOR,
+    GOOGLE_SIGNIN_BUTTON,
+    GOOGLE_EMAIL,
+    GOOGLE_EMAIL_NEXT,
+    GOOGLE_PASSWORD,
+    GOOGLE_PASSWORD_NEXT,
 )
 
 
@@ -53,7 +58,12 @@ async def login_if_needed(page: Page, cfg: Config) -> None:
     except Exception:
         # proceed to interactive flow
         pass
-    # Try legacy and modern login flows
+    # Try Google SSO if requested
+    if cfg.login_method == "google":
+        await _login_with_google(page, cfg)
+        if await is_logged_in(page):
+            return
+    # Try legacy and modern login flows with username/password
     for path in ("/login", "/i/flow/login"):
         try:
             await page.goto(f"{cfg.base_url}{path}", wait_until="domcontentloaded")
@@ -75,6 +85,66 @@ async def login_if_needed(page: Page, cfg: Config) -> None:
             # Try next path variant
             continue
     raise RuntimeError("Login failed: unable to locate login form or verify session.")
+
+
+async def _login_with_google(page: Page, cfg: Config) -> None:
+    # Navigate to login page
+    try:
+        await page.goto(f"{cfg.base_url}/i/flow/login", wait_until="domcontentloaded")
+    except Exception:
+        try:
+            await page.goto(f"{cfg.base_url}/login", wait_until="domcontentloaded")
+        except Exception:
+            pass
+    # Click the Google sign-in button (expect popup or redirect)
+    clicked = False
+    try:
+        from ..waits import click_any_when_ready
+        await click_any_when_ready(page, GOOGLE_SIGNIN_BUTTON, timeout_ms=5000)
+        clicked = True
+    except Exception:
+        try:
+            await page.locator("text=Google").first.click(timeout=3000)
+            clicked = True
+        except Exception:
+            pass
+    if not clicked:
+        return
+    # Handle popup or same-page flow
+    popup = None
+    try:
+        async with page.context.expect_page() as wait_p:
+            # a new page may open immediately or after redirects
+            await page.wait_for_timeout(500)
+        popup = await wait_p.value
+    except Exception:
+        # try to use current page
+        popup = page
+    p = popup or page
+    # Fill Google email
+    try:
+        await p.locator(GOOGLE_EMAIL).first.fill((cfg.username or cfg.email or "").strip(), timeout=10000)
+        await p.locator(GOOGLE_EMAIL_NEXT).first.click()
+    except Exception:
+        pass
+    # Fill Google password (wait for navigation)
+    try:
+        await p.locator(GOOGLE_PASSWORD).first.fill((cfg.password or "").strip(), timeout=15000)
+        await p.locator(GOOGLE_PASSWORD_NEXT).first.click()
+    except Exception:
+        pass
+    # Wait a bit for session to propagate
+    for _ in range(30):
+        try:
+            if p != page and p.is_closed():
+                break
+        except Exception:
+            break
+        await sleep(0.5)
+    try:
+        await page.goto(f"{cfg.base_url}/home", wait_until="domcontentloaded")
+    except Exception:
+        pass
 
 
 async def _fill_username(page: Page, username: Optional[str]) -> None:

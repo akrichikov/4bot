@@ -14,6 +14,17 @@ LOGIN_USERNAME = "input[name='text'], input[autocomplete='username']"
 LOGIN_NEXT = "div[role='button'][data-testid='LoginForm_Login_Button'], div[role='button'][data-testid='ocfEnterTextNextButton'], div[role='button'][data-testid='next_button']"
 LOGIN_PASSWORD = "input[name='password'], input[autocomplete='current-password']"
 LOGIN_SUBMIT = "div[role='button'][data-testid='LoginForm_Login_Button'], div[role='button'][data-testid='LoginForm_Submit_Button'], div[role='button'][data-testid='ocfContinueButton']"
+GOOGLE_SIGNIN_BUTTON = (
+    "div[role='button']:has-text('Sign in with Google')",
+    "div[role='button']:has-text('Continue with Google')",
+    "button:has-text('Sign in with Google')",
+    "button:has-text('Continue with Google')",
+    "a[role='button'][href*='google']",
+)
+GOOGLE_EMAIL = "input[type='email'], input#identifierId"
+GOOGLE_EMAIL_NEXT = "div#identifierNext, button:has-text('Next')"
+GOOGLE_PASSWORD = "input[type='password']"
+GOOGLE_PASSWORD_NEXT = "div#passwordNext, button:has-text('Next')"
 LOGIN_2FA = "input[name='text'][inputmode='numeric']"
 
 # Compose

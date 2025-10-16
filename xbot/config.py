@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 import json
 
 
-LoginMethod = Literal["cookies", "credentials"]
+LoginMethod = Literal["cookies", "credentials", "google"]
 
 
 class Config(BaseModel):
@@ -19,6 +19,8 @@ class Config(BaseModel):
     proxy_url: Optional[str] = None
     base_url: str = Field(default="https://x.com")
     login_method: LoginMethod = Field(default="cookies")
+    # Browser engine: 'chromium' (default), 'webkit' (Safari-like), or 'firefox'
+    browser_name: Literal["chromium", "webkit", "firefox"] = Field(default="chromium")
 
     username: Optional[str] = Field(default=None)
     password: Optional[str] = Field(default=None)
@@ -87,6 +89,9 @@ class Config(BaseModel):
     vterm_http_base: Optional[str] = Field(default=None)  # e.g., http://127.0.0.1:9876
     vterm_token: Optional[str] = Field(default=None)
 
+    # Browser engine: 'chromium' (default), 'webkit' (Safari engine), 'firefox'
+    browser: str = Field(default="chromium")
+
     # Timeouts and retries (ms / counts)
     wait_timeout_ms: int = Field(default=5000)
     long_wait_timeout_ms: int = Field(default=20000)
@@ -99,6 +104,12 @@ class Config(BaseModel):
     @classmethod
     def from_env(cls) -> "Config":
         load_dotenv()
+        # also load ~/.env without overriding existing values
+        try:
+            from dotenv import load_dotenv as _ld
+            _ld(Path.home() / ".env", override=False)
+        except Exception:
+            pass
         from os import getenv
 
         # Support both UPPERCASE and lowercase keys (loaded from .env)
@@ -112,7 +123,8 @@ class Config(BaseModel):
             user_data_dir=Path(getenv("USER_DATA_DIR", ".x-user")),
             proxy_url=getenv("PROXY_URL"),
             base_url=getenv("BASE_URL", "https://x.com"),
-            login_method=(getenv("LOGIN_METHOD", "cookies").lower() or "cookies"),
+            login_method=(getenv("LOGIN_METHOD", "cookies").lower() or ("google" if getenv("LOGIN_WITH_GOOGLE","false").lower() in {"1","true","yes","y","on"} else "cookies")),
+            browser_name=(getenv("BROWSER_NAME", getenv("BROWSER", "chromium")).lower() or "chromium"),
             username=xu,
             password=xp,
             email=xe,
@@ -171,19 +183,8 @@ class Config(BaseModel):
             vterm_socket=Path(getenv("VTERM_SOCKET", ".x-vterm.sock")),
             vterm_http_base=(getenv("VTERM_HTTP_BASE") or None),
             vterm_token=(getenv("VTERM_TOKEN") or None),
+            browser=(getenv("BROWSER", "chromium").lower()),
         )
-
-        # Derive handle if not explicitly provided
-        if cfg.handle is None and cfg.username:
-            u = cfg.username.strip()
-            if u.startswith("@"):
-                cfg.handle = u[1:]
-            elif "@" in u and "." in u:
-                # likely an email; leave handle unset
-                pass
-            else:
-                cfg.handle = u
-        return cfg
 
         # Apply per-profile overrides from config/profiles/<profile>.json if present
         overlay_path = Path("config/profiles") / f"{cfg.profile_name}.json"
@@ -200,6 +201,17 @@ class Config(BaseModel):
                         setattr(cfg, key, val)
             except Exception:
                 pass
+
+        # Derive handle if not explicitly provided (after overlay application)
+        if cfg.handle is None and cfg.username:
+            u = cfg.username.strip()
+            if u.startswith("@"):
+                cfg.handle = u[1:]
+            elif "@" in u and "." in u:
+                # likely an email; leave handle unset
+                pass
+            else:
+                cfg.handle = u
         return cfg
 
 

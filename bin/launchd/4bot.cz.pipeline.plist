@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.4bot.cz.pipeline</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/env</string>
+    <string>bash</string>
+    <string>-lc</string>
+    <string>cd /Users/doctordre/projects/4bot && . .venv/bin/activate && bin/start_cz_pipeline.sh</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/Users/doctordre/projects/4bot/Docs/status/launchd_cz_pipeline.out</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/doctordre/projects/4bot/Docs/status/launchd_cz_pipeline.err</string>
+</dict>
+</plist>

@@ -349,34 +349,41 @@ class CZUnifiedReplySystem:
                 return False
 
         # First attempt: storage_state cookies
-        await _new_context_from_storage()
-        await self.page.goto("https://x.com/home", wait_until="domcontentloaded", timeout=60000)
-        await asyncio.sleep(2)
-        await AntiAutomationHandler.handle_overlay(self.page)
-        if not await _is_logged_in():
-            # Fallback: launch using the real Chrome user profile (Profile 13)
+        try:
+            await _new_context_from_storage()
+            await self.page.goto("https://x.com/home", wait_until="domcontentloaded", timeout=60000)
+            await asyncio.sleep(2)
+            await AntiAutomationHandler.handle_overlay(self.page)
+            if await _is_logged_in():
+                logger.info("✅ Storage state login detected")
+                return
+            logger.info("⚠️ Storage state not logged in; falling back to Chrome profile")
+        except Exception as e:
+            logger.warning(f"Storage state navigation failed: {e}; falling back to Chrome profile")
             try:
                 await self.page.context.close()
                 await self.browser.close()
             except Exception:
                 pass
-            chrome_profile = Path.home() / "Library/Application Support/Google/Chrome/Profile 13"
-            self.browser = await playwright.chromium.launch_persistent_context(
-                user_data_dir=str(chrome_profile),
-                headless=self.config.headless,
-                viewport={"width": 1920, "height": 1080},
-                user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-                args=[
-                    '--disable-blink-features=AutomationControlled',
-                    '--no-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-web-security'
-                ]
-            )
-            self.page = await self.browser.new_page()
-            await self.page.goto("https://x.com/home", wait_until="domcontentloaded", timeout=60000)
-            await asyncio.sleep(2)
-            await AntiAutomationHandler.handle_overlay(self.page)
+
+        # Fallback: launch using the real Chrome user profile (Profile 13)
+        chrome_profile = Path.home() / "Library/Application Support/Google/Chrome/Profile 13"
+        self.browser = await playwright.chromium.launch_persistent_context(
+            user_data_dir=str(chrome_profile),
+            headless=self.config.headless,
+            viewport={"width": 1920, "height": 1080},
+            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+            args=[
+                '--disable-blink-features=AutomationControlled',
+                '--no-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-web-security'
+            ]
+        )
+        self.page = await self.browser.new_page()
+        await self.page.goto("https://x.com/home", wait_until="domcontentloaded", timeout=60000)
+        await asyncio.sleep(2)
+        await AntiAutomationHandler.handle_overlay(self.page)
 
         logger.info("✅ Browser ready for CZ operations")
 
@@ -394,7 +401,7 @@ class CZUnifiedReplySystem:
         await AntiAutomationHandler.handle_overlay(self.page)
         for _ in range(15):  # ~15 screens deep
             items = await self.page.evaluate(
-                """
+                r"""
                 () => {
                   const out = [];
                   for (const a of document.querySelectorAll('article')) {

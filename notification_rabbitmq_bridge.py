@@ -39,7 +39,7 @@ class NotificationRabbitMQBridge:
         self.notifications_published = 0
         self.seen_ids = set()
 
-    async def monitor_and_publish(self, duration: int = 60):
+    async def monitor_and_publish(self, duration: int = 60, only_handle: str | None = None):
         """Monitor Twitter notifications and publish to RabbitMQ"""
         console.print(Panel.fit(
             "[bold cyan]Twitter → RabbitMQ Bridge[/bold cyan]\n"
@@ -47,30 +47,38 @@ class NotificationRabbitMQBridge:
             border_style="cyan"
         ))
 
-        # Load cookies
-        cookie_file = Path("auth_data/x_cookies.json")
-        if not cookie_file.exists():
-            console.print("[red]❌ No cookie file found![/red]")
-            return
-
-        with open(cookie_file) as f:
-            cookies = json.load(f)
-
-        console.print(f"[green]✅ Loaded {len(cookies)} cookies[/green]")
+        # Prefer Playwright storageState for a logged-in session; fall back to cookies JSON
+        storage_state = None
+        for p in [Path("config/profiles/4botbsc/storageState.json"), Path("auth/4botbsc/storageState.json")]:
+            if p.exists():
+                storage_state = str(p)
+                break
+        cookies = []
+        cookie_file = Path("chrome_profiles/cookies/default_cookies.json")
+        if not storage_state and cookie_file.exists():
+            with open(cookie_file) as f:
+                cookies = json.load(f)
+        if storage_state:
+            console.print(f"[green]✅ Using storageState: {storage_state}[/green]")
+        else:
+            console.print(f"[yellow]ℹ️ Using cookie JSON: {cookie_file} ({len(cookies)} cookies)\n[tip] Consider exporting Playwright storageState for more reliable auth[/tip]")
         console.print(f"[green]✅ Connected to RabbitMQ[/green]")
 
         async with async_playwright() as p:
-            browser = await p.chromium.launch(
+            engine = {'chromium': p.chromium, 'webkit': p.webkit, 'firefox': p.firefox}.get(os.getenv('BROWSER_NAME','chromium').lower(), p.chromium)
+            browser = await engine.launch(
                 headless=True,
                 args=['--disable-blink-features=AutomationControlled']
             )
 
             context = await browser.new_context(
+                storage_state=storage_state,
                 viewport={'width': 1920, 'height': 1080},
                 user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0'
             )
 
-            await context.add_cookies(cookies)
+            if cookies:
+                await context.add_cookies(cookies)
             page = await context.new_page()
 
             # Setup console handler
@@ -81,7 +89,7 @@ class NotificationRabbitMQBridge:
             await asyncio.sleep(3)
 
             # Inject extraction script
-            await self._inject_extraction_script(page)
+            await self._inject_extraction_script(page, only_handle=only_handle)
 
             console.print("[green]✅ Monitoring started[/green]")
 
@@ -124,9 +132,10 @@ class NotificationRabbitMQBridge:
         # Display summary
         self._display_summary()
 
-    async def _inject_extraction_script(self, page):
+    async def _inject_extraction_script(self, page, only_handle: str | None = None):
         """Inject notification extraction and publishing script"""
-        await page.evaluate("""
+        handle_filter = (only_handle or '').lstrip('@') if only_handle else ''
+        await page.evaluate(("""
             (() => {
                 const processedNotifications = new Set();
 
@@ -186,6 +195,21 @@ class NotificationRabbitMQBridge:
                         const mentions = elementText.match(/@[a-zA-Z0-9_]+/g);
                         if (mentions) notifData.mentioned_users = [...new Set(mentions)];
 
+                        // Extract status id if present
+                        const statusLink = element.querySelector('a[href*="/status/"]');
+                        if (statusLink) {
+                            const m = (statusLink.getAttribute('href') || statusLink.href || '').match(/status\/(\d+)/);
+                            if (m) notifData.post_id = m[1];
+                        }
+
+                        // Optional filter: only publish notifications that tag a specific handle
+                        const filter = '%HANDLE_FILTER%'.trim();
+                        if (filter) {
+                            const tag = '@' + filter.toLowerCase();
+                            const set = new Set((notifData.mentioned_users || []).map(x => x.toLowerCase()));
+                            if (!set.has(tag)) { return; }
+                        }
+
                         // Send to Python
                         console.log('__RABBITMQ_NOTIF__:' + JSON.stringify(notifData));
 
@@ -215,7 +239,7 @@ class NotificationRabbitMQBridge:
 
                 observer.observe(document.body, { childList: true, subtree: true });
             })();
-        """)
+        """).replace('%HANDLE_FILTER%', handle_filter))
 
     def _handle_console(self, msg):
         """Handle console messages and publish to RabbitMQ"""
@@ -250,6 +274,10 @@ class NotificationRabbitMQBridge:
         try:
             notif_type = data.get('type', 'unknown')
             from_user = data.get('from_handle', 'unknown')
+            # If this is a mention and we have a status link, also emit a CZ reply request
+            # Try to derive status URL/id from raw_text/content heuristics (JS already tried to extract content)
+            post_id = data.get('post_id') or ''
+            post_url = f"https://x.com/i/web/status/{post_id}" if post_id else ''
 
             if notif_type == 'follow':
                 self.publisher.publish_follow(
@@ -273,11 +301,23 @@ class NotificationRabbitMQBridge:
                     post_id=data.get('notification_id', '')
                 )
             elif notif_type == 'mention':
+                content = data.get('content', '')
                 self.publisher.publish_mention(
                     from_user=from_user,
-                    content=data.get('content', ''),
-                    post_id=data.get('notification_id', '')
+                    content=content,
+                    post_id=post_id or data.get('notification_id', '')
                 )
+                # Send request for CZ generation when a mention targets us (already filtered if only_handle set)
+                if post_url:
+                    try:
+                        self.rabbitmq.publish_cz_reply_request(
+                            post_url=post_url,
+                            post_id=post_id or data.get('notification_id',''),
+                            author_handle=from_user,
+                            content=content,
+                        )
+                    except Exception:
+                        pass
             else:
                 # Generic notification
                 self.rabbitmq.publish_notification(data)
@@ -314,12 +354,14 @@ async def main():
     parser = argparse.ArgumentParser(description='Twitter to RabbitMQ notification bridge')
     parser.add_argument('duration', type=int, nargs='?', default=60,
                        help='Duration to monitor in seconds (default: 60)')
+    parser.add_argument('--only-handle', type=str, default='4botbsc', help='Filter notifications to those tagging this handle (without @)')
+    parser.add_argument('--browser', type=str, default=os.getenv('BROWSER_NAME','chromium'), help='chromium|webkit|firefox')
     args = parser.parse_args()
 
     bridge = NotificationRabbitMQBridge()
 
     try:
-        await bridge.monitor_and_publish(args.duration)
+        await bridge.monitor_and_publish(args.duration, only_handle=args.only_handle)
     except KeyboardInterrupt:
         console.print("\n[yellow]⚠️ Bridge interrupted[/yellow]")
     except Exception as e:

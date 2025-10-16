@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.4botbsc.cz-daemon</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/env</string>
+        <string>python3</string>
+        <string>/Users/doctordre/projects/4bot/cz_vterm_rabbitmq_daemon.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/doctordre/projects/4bot</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin</string>
+        <key>PYTHONPATH</key>
+        <string>/Users/doctordre/projects/4bot</string>
+        <key>X_USER</key>
+        <string>4botbsc@gmail.com</string>
+        <key>RABBITMQ_HOST</key>
+        <string>127.0.0.1</string>
+        <key>RABBITMQ_PORT</key>
+        <string>5672</string>
+        <key>RABBITMQ_USER</key>
+        <string>guest</string>
+        <key>RABBITMQ_PASSWORD</key>
+        <string>guest</string>
+        <key>RABBITMQ_VHOST</key>
+        <string>/</string>
+        <key>RABBITMQ_EXCHANGE</key>
+        <string>4botbsc_exchange</string>
+        <key>RABBITMQ_REQUEST_QUEUE</key>
+        <string>4bot_request</string>
+        <key>RABBITMQ_RESPONSE_QUEUE</key>
+        <string>4bot_response</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/doctordre/projects/4bot/logs/cz_daemon.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/doctordre/projects/4bot/logs/cz_daemon.err.log</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+        <key>Crashed</key>
+        <true/>
+    </dict>
+
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+
+    <key>StartInterval</key>
+    <integer>300</integer>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <key>Nice</key>
+    <integer>10</integer>
+</dict>
+</plist>

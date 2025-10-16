@@ -26,6 +26,7 @@ from .vterm import VTerm
 from .vtermd import VTermDaemon, client_request, DEFAULT_SOCKET
 from .vterm_http import VTermHTTPServer
 from .auto_responder import ClaudeGen
+from cz_vterm_rabbitmq_daemon import CZVTermDaemon
 import sys
 import shlex
 import json
@@ -62,10 +63,12 @@ def _cfg(
     user_data_dir: str = typer.Option(".x-user", help="User data dir (persistent context)"),
     proxy_url: Optional[str] = typer.Option(None, help="Proxy URL (e.g. http://user:pass@host:port)"),
     profile: str = typer.Option("default", help="Named profile for session separation"),
+    browser: str = "chromium",
 ) -> Config:
     base = Config.from_env()
     base.headless = headless
     base.persist_session = persist_session
+    base.browser_name = browser.lower()
     if storage_state == "auth/storageState.json" and user_data_dir == ".x-user":
         s, u = profile_paths(profile)
         base.storage_state = s
@@ -86,10 +89,14 @@ def login(
     user_data_dir: str = ".x-user",
     proxy_url: Optional[str] = None,
     profile: str = "default",
+    browser: str = "chromium",
+    login_method: str = typer.Option("cookies", help="cookies|credentials|google"),
 ) -> None:
-    cfg = _cfg(headless, persist_session, storage_state, user_data_dir, proxy_url, profile)
+    cfg = _cfg(headless, persist_session, storage_state, user_data_dir, proxy_url, profile, browser)
 
     async def _run() -> None:
+        cfg.browser_name = browser.lower()
+        cfg.login_method = login_method.lower()  # type: ignore[assignment]
         async with Browser(cfg) as b:
             await login_if_needed(b.page, cfg)
             print("[green]Login verified and session stored.[/green]")
@@ -154,6 +161,29 @@ def retweet(url: str) -> None:
     bot = XBot(Config.from_env())
     asyncio.run(bot.retweet(url))
     print("[green]Retweet confirmed.[/green]")
+
+
+@app.command("cz-daemon")
+def cz_daemon(
+    vterm_host: str = typer.Option("127.0.0.1", help="VTerm HTTP host"),
+    vterm_port: int = typer.Option(8765, help="VTerm HTTP port"),
+    vterm_token: Optional[str] = typer.Option(None, help="VTerm token"),
+) -> None:
+    """Start the CZ VTerm RabbitMQ Daemon (headless)."""
+    import asyncio, os
+    if vterm_token:
+        os.environ["VTERM_TOKEN"] = vterm_token
+    os.environ["VTERM_HOST"] = vterm_host
+    os.environ["VTERM_PORT"] = str(vterm_port)
+
+    async def _run():
+        daemon = CZVTermDaemon()
+        try:
+            await daemon.run()
+        finally:
+            await daemon.cleanup()
+
+    asyncio.run(_run())
 
 
 @app.command("fud-reply")

@@ -48,9 +48,13 @@ class RabbitMQManager:
 
         # Exchange and queue settings
         self.exchange = os.getenv('RABBITMQ_EXCHANGE', '4botbsc_exchange')
+        self.exchange_type = os.getenv('RABBITMQ_EXCHANGE_TYPE', 'topic')
         self.request_queue = os.getenv('RABBITMQ_REQUEST_QUEUE', '4bot_request')
         self.response_queue = os.getenv('RABBITMQ_RESPONSE_QUEUE', '4bot_response')
+        self.request_bind_key = os.getenv('RABBITMQ_REQUEST_ROUTING_KEY', '4bot.request.*')
+        self.response_bind_key = os.getenv('RABBITMQ_RESPONSE_ROUTING_KEY', '4bot.response.*')
         self.durable = os.getenv('RABBITMQ_DURABLE', 'true').lower() == 'true'
+        self.auto_delete = os.getenv('RABBITMQ_AUTO_DELETE', 'false').lower() == 'true'
         self.prefetch_count = int(os.getenv('RABBITMQ_PREFETCH_COUNT', '10'))
         self.auto_ack = os.getenv('RABBITMQ_AUTO_ACK', 'false').lower() == 'true'
 
@@ -79,12 +83,35 @@ class RabbitMQManager:
             self.channel = self.connection.channel()
             self.channel.basic_qos(prefetch_count=self.prefetch_count)
 
+            # Ensure topology (durable exchange and queues)
+            self._ensure_topology()
+
             logger.info(f"✅ Connected to RabbitMQ at {self.host}:{self.port}")
             return True
 
         except Exception as e:
             logger.error(f"❌ Failed to connect to RabbitMQ: {e}")
             return False
+
+    def _ensure_topology(self) -> None:
+        try:
+            # Exchange
+            self.channel.exchange_declare(
+                exchange=self.exchange,
+                exchange_type=self.exchange_type,
+                durable=self.durable,
+                auto_delete=False,
+                passive=False,
+            )
+            # Queues
+            self.channel.queue_declare(queue=self.request_queue, durable=self.durable, auto_delete=self.auto_delete)
+            self.channel.queue_declare(queue=self.response_queue, durable=self.durable, auto_delete=self.auto_delete)
+            # Bindings
+            self.channel.queue_bind(queue=self.request_queue, exchange=self.exchange, routing_key=self.request_bind_key)
+            self.channel.queue_bind(queue=self.response_queue, exchange=self.exchange, routing_key=self.response_bind_key)
+            logger.info("✅ Ensured durable exchange/queues and bindings")
+        except Exception as e:
+            logger.error(f"❌ Topology ensure failed: {e}")
 
     def publish_notification(self, notification_data: Dict[str, Any]) -> bool:
         """Publish a notification from Twitter to RabbitMQ"""
@@ -135,16 +162,22 @@ class RabbitMQManager:
             logger.error(f"❌ Failed to publish command: {e}")
             return False
 
-    def publish_message(self, message: BotMessage, routing_key: str) -> bool:
+    def publish_message(self, message: BotMessage | Dict[str, Any], routing_key: str) -> bool:
         """Publish a message to RabbitMQ"""
         try:
             if not self.connection or self.connection.is_closed:
                 self.connect()
 
+            # Support either BotMessage dataclass or raw dict
+            if isinstance(message, BotMessage):
+                body = json.dumps(asdict(message))
+            else:
+                body = json.dumps(message)
+
             self.channel.basic_publish(
                 exchange=self.exchange,
                 routing_key=routing_key,
-                body=json.dumps(asdict(message)),
+                body=body,
                 properties=pika.BasicProperties(
                     delivery_mode=2 if self.durable else 1,
                     content_type='application/json'
@@ -156,6 +189,42 @@ class RabbitMQManager:
         except Exception as e:
             logger.error(f"❌ Failed to publish message: {e}")
             return False
+
+    # ---------------- CZ REPLY PIPELINE HELPERS ----------------
+    def publish_cz_reply_request(self, *, post_url: str, post_id: str | None, author_handle: str, content: str) -> bool:
+        """Send a request asking vterm proxy to generate a CZ reply for a given tweet."""
+        data = {
+            "post_url": post_url,
+            "post_id": post_id,
+            "author_handle": author_handle,
+            "content": content,
+        }
+        msg = BotMessage(
+            message_id=f"czreq_{datetime.now().timestamp()}",
+            message_type="cz_reply_request",
+            timestamp=datetime.now().isoformat(),
+            source="twitter",
+            data=data,
+        )
+        return self.publish_message(msg, routing_key="4bot.request.cz_reply")
+
+    def publish_cz_reply_generated(self, *, post_url: str, post_id: str | None, author_handle: str, content: str, reply_text: str) -> bool:
+        """Publish the generated CZ reply (ready for posting)."""
+        data = {
+            "post_url": post_url,
+            "post_id": post_id,
+            "author_handle": author_handle,
+            "content": content,
+            "reply_text": reply_text,
+        }
+        msg = BotMessage(
+            message_id=f"czgen_{datetime.now().timestamp()}",
+            message_type="cz_reply_generated",
+            timestamp=datetime.now().isoformat(),
+            source="vterm",
+            data=data,
+        )
+        return self.publish_message(msg, routing_key="4bot.response.cz_reply")
 
     def register_handler(self, message_type: str, handler: Callable):
         """Register a message handler for a specific message type"""
