@@ -25,7 +25,10 @@ def _normalize_cookie(c: Dict[str, Any]) -> Cookie:
             expires = -1
     http_only = bool(c.get("httpOnly", c.get("httponly", False)))
     secure = bool(c.get("secure", False))
-    same_site = c.get("sameSite") or c.get("same_site") or "Lax"
+    if "sameSite" in c or "same_site" in c:
+        same_site = c.get("sameSite", c.get("same_site"))
+    else:
+        same_site = "Lax"
     if isinstance(same_site, str):
         s = same_site.lower()
         if s.startswith("lax"):
@@ -94,4 +97,3 @@ def merge_into_storage(storage_path: Path, new_cookies: Iterable[Cookie], filter
     storage_path.parent.mkdir(parents=True, exist_ok=True)
     storage_path.write_text(json.dumps(storage, ensure_ascii=False, indent=2))
     return count
-

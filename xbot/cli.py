@@ -25,6 +25,7 @@ from .profiles import profile_paths, list_profiles, ensure_profile_dirs, clear_s
 from .vterm import VTerm
 from .vtermd import VTermDaemon, client_request, DEFAULT_SOCKET
 from .vterm_http import VTermHTTPServer
+from .auto_responder import ClaudeGen
 import sys
 import shlex
 import json
@@ -47,6 +48,8 @@ app.add_typer(report_app, name="report", help="Summaries and exports for results
 app.add_typer(profile_app, name="profile", help="Manage named profiles (sessions)")
 vterm_app = typer.Typer(no_args_is_help=True, add_completion=False)
 app.add_typer(vterm_app, name="vterm", help="In-memory PTY virtual terminal")
+queue_app = typer.Typer(no_args_is_help=True, add_completion=False)
+vterm_app.add_typer(queue_app, name="queue", help="HTTP queue operations (requires vterm http server)")
 vtermd_app = typer.Typer(no_args_is_help=True, add_completion=False)
 results_app = typer.Typer(no_args_is_help=True, add_completion=False)
 app.add_typer(results_app, name="results", help="Inspect raw results index")
@@ -151,6 +154,311 @@ def retweet(url: str) -> None:
     bot = XBot(Config.from_env())
     asyncio.run(bot.retweet(url))
     print("[green]Retweet confirmed.[/green]")
+
+
+@app.command("fud-reply")
+def fud_reply(
+    profile: str = typer.Option("4botbsc", help="Profile name for 4bot account"),
+    list_path: Path = typer.Option(Path("Docs/4Bot Tweets.md"), help="Markdown file with tweet URLs"),
+    vterm_base: str = typer.Option("http://127.0.0.1:9876", help="VTerm HTTP base"),
+    vterm_token: Optional[str] = typer.Option(None, help="VTerm HTTP token"),
+    system_path: Path = typer.Option(Path("CLAUDE.md"), help="Path to CZ system prompt"),
+    mode: str = typer.Option("run-pipe", help="Claude mode: run-pipe|write-read (falls back to local)"),
+    dry_run: bool = typer.Option(False, help="Do not post, only print planned replies"),
+    x_user: Optional[str] = typer.Option(None, help="X username/email for login (overrides env)"),
+    x_handle: Optional[str] = typer.Option(None, help="X handle (e.g., 4botbsc)"),
+    headless: bool = typer.Option(True, help="Run headless (in-memory if persist_session disabled)"),
+) -> None:
+    import re, asyncio
+    from .auto_responder import ClaudeGen
+    from .profiles import profile_paths
+    import os
+    if x_user:
+        os.environ['X_USER'] = x_user
+    if x_handle:
+        os.environ['X_HANDLE'] = x_handle
+    cfg = Config.from_env()
+    # honor headless selection and prefer persistent context to carry cookies/localStorage reliably
+    cfg.headless = bool(headless)
+    cfg.persist_session = True
+    s, u = profile_paths(profile)
+    cfg.storage_state = s
+    cfg.user_data_dir = u
+
+    text = list_path.read_text(encoding="utf-8")
+    # Robust URL extraction, including markdown-style links and i/web/status patterns
+    urls = re.findall(r"https?://(?:x\.com|twitter\.com)/[^/\s]+/status/\d+|https?://x\.com/i/web/status/\d+", text)
+    # normalize URLs: strip trailing punctuation
+    urls = [u.rstrip(').,;*]') for u in urls]
+    # de-dup preserve order
+    seen = set(); dedup = []
+    for u in urls:
+        if u not in seen:
+            seen.add(u); dedup.append(u)
+
+    system_prompt = system_path.read_text(encoding="utf-8") if system_path.exists() else ""
+    claude = ClaudeGen(base=vterm_base, token=vterm_token, system_prompt=system_prompt, mode=mode)
+
+    def _cz_local(url: str) -> str:
+        pool = [
+            "Less noise, more signal. BUIDL.",
+            "4. Back to building.",
+            "Security first. #SAFU",
+            "Play the long game.",
+            "Winners focus on winning.",
+            "Stop complaining, start building.",
+            "Clear rules protect users and innovation.",
+            "Utility > hype. Ship, learn, iterate.",
+        ]
+        return pool[hash(url) % len(pool)][:240]
+
+    async def _run():
+        use_local = False
+        try:
+            await claude.ensure_ready()
+        except Exception:
+            print("[yellow]vterm HTTP not available; using local CZ replies.[/yellow]")
+            use_local = True
+        from .browser import Browser
+        from .flows.login import is_logged_in
+        bot = XBot(cfg)
+        async with Browser(cfg, label="fud_replier") as b:
+            try:
+                await b.page.goto(cfg.base_url + "/home", wait_until="domcontentloaded")
+            except Exception:
+                pass
+            for url in dedup:
+                # Navigate to collect context then reply
+                try:
+                    await b.page.goto(url, wait_until="domcontentloaded")
+                except Exception:
+                    pass
+                # Build a synthetic PostEvent-like payload by scraping minimal content (optional)
+                # For simplicity here, rely on Claude prompt with URL context
+                from dataclasses import dataclass
+                from datetime import datetime as _dt
+                @dataclass
+                class _P:  # minimal shape with required fields
+                    author: str = ""
+                    author_handle: str = cfg.handle or ""
+                    content: str = f"Please open and read the tweet at {url} and reply as CZ."
+                    timestamp: _dt = _dt.now()
+                if not use_local:
+                    try:
+                        reply_text = await claude.reply(_P())
+                        if not reply_text:
+                            reply_text = _cz_local(url)
+                    except Exception:
+                        reply_text = _cz_local(url)
+                else:
+                    reply_text = _cz_local(url)
+                print(f"[cyan]Reply to {url}:[/cyan] {reply_text}")
+                if not dry_run:
+                    await bot.reply(url, reply_text)
+    asyncio.run(_run())
+
+
+@app.command("cz-posts")
+def cz_posts(
+    count: int = typer.Option(20, help="Number of tweets to post"),
+    min_interval_s: int = typer.Option(120, help="Minimum interval seconds"),
+    max_interval_s: int = typer.Option(180, help="Maximum interval seconds"),
+    profile: str = typer.Option("Profile 13", help="Chrome profile for 4bot account"),
+    vterm_base: str = typer.Option("http://127.0.0.1:9876", help="VTerm HTTP base"),
+    vterm_token: Optional[str] = typer.Option(None, help="VTerm token"),
+    system_path: Path = typer.Option(Path("CLAUDE.md"), help="CZ system prompt path"),
+    x_user: Optional[str] = typer.Option(None, help="X username/email"),
+    x_handle: Optional[str] = typer.Option(None, help="X handle (e.g., 4botbsc)"),
+    dry_run: bool = typer.Option(False, help="If true, do not post"),
+) -> None:
+    import os, random, time
+    from datetime import datetime
+    cfg = Config.from_env()
+    # headless + in-memory (non-persistent)
+    cfg.headless = True
+    cfg.persist_session = False
+    cfg.persist_session = False  # use ephemeral context to avoid profile lock; storageState applied
+    if x_user:
+        os.environ['X_USER'] = x_user
+    if x_handle:
+        os.environ['X_HANDLE'] = x_handle
+    # reload cfg to capture env overrides
+    cfg = Config.from_env()
+    s, u = profile_paths(profile)
+    cfg.storage_state = s
+    cfg.user_data_dir = u
+    system_prompt = system_path.read_text(encoding="utf-8") if system_path.exists() else ""
+    claude = ClaudeGen(base=vterm_base, token=vterm_token, system_prompt=system_prompt, mode="run-pipe")
+
+    topics = [
+        "Ignore FUD, keep building",
+        "Builders over speculators",
+        "Why '4' means focus",
+        "Resilience during volatility",
+        "Support the community",
+        "Long-term conviction",
+        "Shipping beats shouting",
+        "Signal vs noise in crypto",
+        "Market cycles and discipline",
+        "What building looks like today",
+    ]
+
+    def build_prompt(topic: str) -> str:
+        return (
+            "Write a single original X (Twitter) post in the CZ persona that responds to this theme: "
+            + topic + ". \n"
+            "Constraints: 1) 240 characters max; 2) No links; 3) At most one hashtag (#IgnoreFUD optional); "
+            "4) No emojis more than 1; 5) Vary phrasing each time; 6) Avoid repetition and quotes. "
+            "Provide only the tweet text."
+        )
+
+    async def _once(bot: XBot, i: int) -> None:
+        # pick a topic
+        topic = random.choice(topics)
+        # use Claude to generate
+        text = await claude.reply(type("P", (), {"author":"","author_handle":cfg.handle or (x_handle or ""), "content": build_prompt(topic), "timestamp": datetime.now()})())
+        text = (text or "4").strip()
+        if len(text) > 280:
+            text = text[:280]
+        ts = datetime.now().strftime('%H:%M:%S')
+        print(f"[{ts}] Post {i+1}/{count}: {text}")
+        if not dry_run:
+            await bot.post(text)
+
+    async def _run_all():
+        await claude.ensure_ready()
+        bot = XBot(cfg)
+        for i in range(count):
+            try:
+                await _once(bot, i)
+            except Exception as e:
+                print({"error": str(e)})
+            if i < count - 1:
+                delay = random.randint(min_interval_s, max_interval_s)
+                time.sleep(delay)
+
+    asyncio.run(_run_all())
+
+
+@app.command("reply-all")
+def reply_all(
+    source: str = typer.Option("both", help="home|notifications|both"),
+    max_replies: int = typer.Option(25, help="Max number of replies to send"),
+    duration_s: int = typer.Option(120, help="Max monitoring seconds (ignored if max reached)"),
+    min_delay_s: int = typer.Option(4, help="Minimum delay between replies (sec)"),
+    max_delay_s: int = typer.Option(8, help="Maximum delay between replies (sec)"),
+    profile: str = typer.Option("Profile 13", help="Chrome profile for 4bot account"),
+    vterm_base: str = typer.Option("http://127.0.0.1:9876", help="VTerm HTTP base"),
+    vterm_token: Optional[str] = typer.Option(None, help="VTerm token"),
+    system_path: Path = typer.Option(Path("CLAUDE.md"), help="CZ system prompt path"),
+    x_user: Optional[str] = typer.Option(None, help="X username/email"),
+    x_handle: Optional[str] = typer.Option(None, help="X handle (e.g., 4botbsc)"),
+    dry_run: bool = typer.Option(False, help="If true, do not post"),
+) -> None:
+    import os, random, time
+    from datetime import datetime
+    from .event_interceptor import EventInterceptor, PostEvent
+    from .flows.login import is_logged_in
+    from .profiles import profile_paths
+
+    if x_user:
+        os.environ['X_USER'] = x_user
+    if x_handle:
+        os.environ['X_HANDLE'] = x_handle
+    cfg = Config.from_env()
+    cfg.headless = True
+    cfg.persist_session = False
+    s, u = profile_paths(profile)
+    cfg.storage_state = s
+    cfg.user_data_dir = u
+
+    system_prompt = system_path.read_text(encoding="utf-8") if system_path.exists() else ""
+    claude = ClaudeGen(base=vterm_base, token=vterm_token, system_prompt=system_prompt, mode="run-pipe")
+
+    async def _run():
+        await claude.ensure_ready()
+        bot = XBot(cfg)
+        replied: set[str] = set()
+        cutoff = time.time() + duration_s
+        async with Browser(cfg, label="reply_all") as b:
+            # open sources
+            pages = []
+            await b.page.goto(cfg.base_url + "/home", wait_until="domcontentloaded")
+            pages.append(b.page)
+            if source in ("notifications","both"):
+                notif = await b._ctx.new_page()  # type: ignore[attr-defined]
+                await notif.goto(cfg.base_url + "/notifications", wait_until="domcontentloaded")
+                pages.append(notif)
+
+            inters: list[EventInterceptor] = []
+            for p in pages:
+                inter = EventInterceptor()
+                inters.append(inter)
+                await inter.start_monitoring(p)
+
+            i = 0
+            while i < max_replies and time.time() < cutoff:
+                # gather across interceptors
+                for inter in inters:
+                    # internal buffer is private; rely on callbacks by attaching a lightweight queue
+                    pass
+                # Instead, use a small JS scrape every loop for robustness
+                for p in pages:
+                    try:
+                        data = await p.evaluate("""
+                            () => Array.from(document.querySelectorAll('article a[href*="/status/"]'))
+                                      .slice(0,20)
+                                      .map(a => a.href)
+                        """)
+                    except Exception:
+                        data = []
+                    if not data:
+                        continue
+                    for href in data:
+                        try:
+                            sid = href.split('/status/')[1].split('?')[0]
+                        except Exception:
+                            continue
+                        if sid in replied:
+                            continue
+                        # skip self posts
+                        # Try to detect author handle on card
+                        author_handle = ""
+                        try:
+                            author_handle = await p.evaluate("""
+                                (href) => {
+                                    const a = Array.from(document.querySelectorAll('a[href*="/status/"]')).find(x => x.href === href);
+                                    const root = a?.closest('article');
+                                    const h = root?.querySelector('[data-testid="User-Name"] a[href^="/"]');
+                                    return h ? h.href.split('/').pop() : '';
+                                }
+                            """, href)
+                        except Exception:
+                            author_handle = ""
+                        my_handle = cfg.handle or (x_handle or "")
+                        if my_handle and author_handle and author_handle.lower() == my_handle.lower():
+                            continue
+                        # Build prompt for Claude CZ reply
+                        content_hint = f"Read the tweet at {href} and reply as CZ (from CLAUDE.md)."
+                        class _P: pass
+                        ptmp = _P(); ptmp.author = ''; ptmp.author_handle = my_handle; ptmp.content = content_hint; ptmp.timestamp = datetime.now()
+                        reply_text = await claude.reply(ptmp)  # type: ignore[arg-type]
+                        reply_text = (reply_text or "4").strip()
+                        if len(reply_text) > 280:
+                            reply_text = reply_text[:280]
+                        print(f"Replying to {href}: {reply_text}")
+                        if not dry_run:
+                            await bot.reply(href, reply_text)
+                        replied.add(sid)
+                        i += 1
+                        if i >= max_replies:
+                            break
+                        time.sleep(random.randint(min_delay_s, max_delay_s))
+                    if i >= max_replies or time.time() >= cutoff:
+                        break
+                await asyncio.sleep(0.3)
+
+    asyncio.run(_run())
 
 
 @cookies_app.command("export")
@@ -339,8 +647,9 @@ def vterm_http(
     rate_burst: int = typer.Option(5, help="Rate limit burst"),
     audit_log: Path | None = typer.Option(None, help="Append JSONL audit here"),
     audit: bool = typer.Option(False, help="Enable request audit logging"),
+    admin_token: str | None = typer.Option(None, help="Admin token for /admin/shutdown"),
 ) -> None:
-    server = VTermHTTPServer(host=host, port=port, token=token, rate_qps=rate_qps, rate_burst=rate_burst, audit_log=audit_log, audit_enabled=audit)
+    server = VTermHTTPServer(host=host, port=port, token=token, admin_token=admin_token, rate_qps=rate_qps, rate_burst=rate_burst, audit_log=audit_log, audit_enabled=audit)
     server.run()
 
 
@@ -352,6 +661,8 @@ def vterm_client(
     run: str | None = typer.Option(None, help="Command to run"),
     write: str | None = typer.Option(None, help="Text to write"),
     read_timeout: float = typer.Option(0.25, help="Read timeout"),
+    admin_shutdown: bool = typer.Option(False, help="Call /admin/shutdown (HTTP mode)"),
+    admin_token: str | None = typer.Option(None, help="Admin token for shutdown"),
 ) -> None:
     from .vterm_client import VTermClient
     import asyncio as _asyncio
@@ -360,6 +671,12 @@ def vterm_client(
         client = VTermClient(mode="http", base=target, token=token)
         async def _go():
             import sys as _sys, json as _json
+            import aiohttp as _aio
+            if admin_shutdown:
+                headers = {"X-VTerm-Admin": admin_token} if admin_token else {}
+                async with _aio.ClientSession(headers=headers) as s:
+                    async with s.post(f"{target}/admin/shutdown") as r:
+                        _sys.stdout.write(_json.dumps({"status": r.status, "body": await r.json()}) + "\n"); return
             if run:
                 resp = await client.run_http(run)
                 _sys.stdout.write(_json.dumps(resp) + "\n"); return
@@ -381,6 +698,76 @@ def vterm_client(
         raise typer.Exit(code=2)
 
 
+@queue_app.command("run")
+def vterm_queue_run(
+    cmd: List[str] = typer.Argument(..., help="Command and args to enqueue"),
+    target: str = typer.Option("http://127.0.0.1:9876", help="HTTP base URL"),
+    token: str | None = typer.Option(None, help="X-VTerm-Token for auth"),
+) -> None:
+    import aiohttp, asyncio as _asyncio, json as _json, sys as _sys
+    async def _go():
+        headers = {"X-VTerm-Token": token} if token else None
+        body = {"cmd": " ".join(shlex.quote(c) for c in cmd)}
+        async with aiohttp.ClientSession(headers=headers) as s:
+            async with s.post(f"{target}/queue/run", json=body) as r:
+                _sys.stdout.write(_json.dumps({"status": r.status, **(await r.json())}) + "\n")
+    _asyncio.run(_go())
+
+
+@queue_app.command("get")
+def vterm_queue_get(
+    job_id: int = typer.Argument(..., help="Job id"),
+    target: str = typer.Option("http://127.0.0.1:9876", help="HTTP base URL"),
+    token: str | None = typer.Option(None, help="X-VTerm-Token for auth"),
+) -> None:
+    import aiohttp, asyncio as _asyncio, json as _json, sys as _sys
+    async def _go():
+        headers = {"X-VTerm-Token": token} if token else None
+        async with aiohttp.ClientSession(headers=headers) as s:
+            async with s.get(f"{target}/queue/{job_id}") as r:
+                _sys.stdout.write(_json.dumps({"status": r.status, **(await r.json())}) + "\n")
+    _asyncio.run(_go())
+
+
+@queue_app.command("list")
+def vterm_queue_list(
+    target: str = typer.Option("http://127.0.0.1:9876", help="HTTP base URL"),
+    token: str | None = typer.Option(None, help="X-VTerm-Token for auth"),
+) -> None:
+    import aiohttp, asyncio as _asyncio, json as _json, sys as _sys
+    async def _go():
+        headers = {"X-VTerm-Token": token} if token else None
+        async with aiohttp.ClientSession(headers=headers) as s:
+            async with s.get(f"{target}/queue") as r:
+                _sys.stdout.write(_json.dumps({"status": r.status, **(await r.json())}) + "\n")
+    _asyncio.run(_go())
+
+
+@queue_app.command("wait")
+def vterm_queue_wait(
+    job_id: int = typer.Argument(..., help="Job id"),
+    target: str = typer.Option("http://127.0.0.1:9876", help="HTTP base URL"),
+    token: str | None = typer.Option(None, help="X-VTerm-Token for auth"),
+    timeout: float = typer.Option(30.0, help="Max seconds to wait"),
+    interval: float = typer.Option(0.25, help="Polling interval seconds"),
+) -> None:
+    import aiohttp, asyncio as _asyncio, json as _json, sys as _sys, time as _time
+    async def _go():
+        headers = {"X-VTerm-Token": token} if token else None
+        t0 = _time.time()
+        async with aiohttp.ClientSession(headers=headers) as s:
+            while True:
+                async with s.get(f"{target}/queue/{job_id}") as r:
+                    data = await r.json()
+                    status = data.get("status")
+                    if status in {"done","error"}:
+                        _sys.stdout.write(_json.dumps({"status": r.status, **data}) + "\n"); return
+                if _time.time() - t0 > timeout:
+                    _sys.stdout.write(_json.dumps({"error":"timeout"}) + "\n"); return
+                await _asyncio.sleep(interval)
+    _asyncio.run(_go())
+
+
 @session_app.command("check")
 def session_check() -> None:
     cfg = Config.from_env()
@@ -392,6 +779,36 @@ def session_check() -> None:
                 print("[green]Session valid (logged in).[/green]")
             else:
                 print("[yellow]Session not logged in.[/yellow]")
+
+    asyncio.run(_run())
+
+
+@session_app.command("bootstrap")
+def session_bootstrap(
+    headless: bool = typer.Option(False, help="Open a visible browser window for manual login"),
+    persist_session: bool = typer.Option(True, help="Persist session data under the profile"),
+    storage_state: str = typer.Option("auth/storageState.json", help="Storage state path"),
+    user_data_dir: str = typer.Option(".x-user", help="User data dir (persistent context)"),
+    proxy_url: Optional[str] = typer.Option(None, help="Proxy URL (optional)"),
+    profile: str = typer.Option("default", help="Profile name (maps storage/user dirs)"),
+    timeout_s: int = typer.Option(600, help="Max seconds to wait for manual login"),
+):
+    cfg = _cfg(headless, persist_session, storage_state, user_data_dir, proxy_url, profile)
+
+    async def _run() -> None:
+        from .flows.login import is_logged_in
+        async with Browser(cfg, label="bootstrap") as b:
+            print("[yellow]Opening X in a browser window. Please log in manually.[/yellow]")
+            await b.page.goto(cfg.base_url, wait_until="domcontentloaded")
+            import time as _time
+            t0 = _time.time()
+            while True:
+                if await is_logged_in(b.page):
+                    print(f"[green]Login detected. Session saved to {cfg.storage_state}[/green]")
+                    return
+                if ( _time.time() - t0 ) > timeout_s:
+                    raise RuntimeError("Timeout waiting for manual login.")
+                await asyncio.sleep(2.0)
 
     asyncio.run(_run())
 
@@ -733,6 +1150,334 @@ def vtermd_exec(
 
 # attach vtermd subapp after commands are registered
 app.add_typer(vtermd_app, name="vtermd", help="VTerm UNIX-socket daemon (singleton PTY)")
+@app.command("reply-notmine")
+def reply_notmine(
+    profile: str = typer.Option("4botbsc", help="Profile name for 4bot account"),
+    max_replies: int = typer.Option(50, help="Maximum replies to send"),
+    headless: bool = typer.Option(True, help="Run headless"),
+    x_user: Optional[str] = typer.Option(None, help="X username/email for login context"),
+    x_handle: Optional[str] = typer.Option("4botbsc", help="Our handle to exclude (no @)"),
+    system_path: Path = typer.Option(Path("CLAUDE.md"), help="CZ system prompt path (style only)"),
+    vterm_base: Optional[str] = typer.Option(None, help="If set, use Claude via VTerm HTTP base"),
+    vterm_token: Optional[str] = typer.Option(None, help="VTerm token"),
+    dry_run: bool = typer.Option(False, help="If true, print plan only"),
+) -> None:
+    import os, asyncio
+    from .profiles import profile_paths
+
+    if x_user:
+        os.environ['X_USER'] = x_user
+    if x_handle:
+        os.environ['X_HANDLE'] = x_handle
+
+    cfg = Config.from_env()
+    cfg.headless = headless
+    # prefer config/profiles/<name>/storageState.json if present
+    cfg_storage = Path("config/profiles") / profile / "storageState.json"
+    if cfg_storage.exists():
+        cfg.storage_state = cfg_storage
+        cfg.user_data_dir = Path(".x-user") / profile
+    else:
+        s, u = profile_paths(profile)
+        cfg.storage_state = s
+        cfg.user_data_dir = u
+
+    system_prompt = system_path.read_text(encoding="utf-8") if system_path.exists() else ""
+    claude = None
+    if vterm_base:
+        claude = ClaudeGen(base=vterm_base, token=vterm_token, system_prompt=system_prompt, mode="run-pipe")
+
+    async def _collect_targets(page) -> list[dict]:
+        targets: list[dict] = []
+        seen: set[str] = set()
+        our = (cfg.handle or x_handle or "").lstrip('@').lower()
+        # Check mentions first, then notifications
+        for path in ("/notifications/mentions", "/notifications"):
+            try:
+                await page.goto(cfg.base_url + path, wait_until="domcontentloaded")
+            except Exception:
+                continue
+            for _ in range(12):  # ~12 screens
+                items = await page.evaluate(
+                    """
+                    () => {
+                      const out = [];
+                      for (const a of document.querySelectorAll('article')) {
+                        const link = a.querySelector("a[href*='/status/']");
+                        if (!link) continue;
+                        const href = link.href || link.getAttribute('href') || '';
+                        const idm = href.match(/status\/(\d+)/);
+                        const id = idm ? idm[1] : null;
+                        const authorA = a.querySelector("[data-testid='User-Name'] a[href^='/']");
+                        const handle = authorA ? (authorA.getAttribute('href') || '').replace(/^\//,'') : '';
+                        const textEl = a.querySelector("[data-testid='tweetText']");
+                        const content = textEl ? textEl.textContent : '';
+                        if (id) out.push({id, url: href.startsWith('http')?href:('https://x.com' + href), handle, content});
+                      }
+                      return out;
+                    }
+                    """
+                )
+                for it in items:
+                    hid = str(it.get('id', ''))
+                    h = str(it.get('handle','')).lower()
+                    if not hid or hid in seen:
+                        continue
+                    if our and h == our:
+                        continue
+                    seen.add(hid); targets.append(it)
+                # scroll
+                await page.evaluate("window.scrollBy(0, document.body.scrollHeight)")
+                await asyncio.sleep(1.0)
+            if len(targets) >= max_replies:
+                break
+        return targets[:max_replies]
+
+    def _simple_cz_reply(content: str) -> str:
+        base = "4. BUIDL > FUD. Long-term > noise."
+        # tiny heuristic tweak
+        cl = (content or '').lower()
+        hint = (
+            " Welcome clear rules; collaborate, protect users." if any(k in cl for k in ("sec","reg","doj","ban","illegal","fine")) else
+            " Focus on real builders; avoid rumors." if any(k in cl for k in ("scam","rug","ponzi")) else
+            " Transparency, fix fast, users first." if any(k in cl for k in ("hack","exploit","breach","drain")) else
+            " Zoom out. Tech adoption compounds." if any(k in cl for k in ("dead","zero","collapse","insolvent")) else
+            " Keep users #SAFU."
+        )
+        txt = f"{base}{hint} — CZ-inspired"
+        return txt[:240]
+
+    async def _run():
+        if claude:
+            await claude.ensure_ready()
+        from .browser import Browser
+        from .flows.login import login_if_needed
+        bot = XBot(cfg)
+        async with Browser(cfg, label="reply_notmine") as b:
+            await login_if_needed(b.page, cfg)
+            targets = await _collect_targets(b.page)
+            if not targets:
+                print("[yellow]No target posts found (not from our handle).[/yellow]")
+                return
+            for i, t in enumerate(targets, 1):
+                url = t.get('url') or ''
+                content = t.get('content') or ''
+                if claude:
+                    from dataclasses import dataclass
+                    from datetime import datetime as _dt
+                    @dataclass
+                    class _P:
+                        author: str = ''
+                        author_handle: str = cfg.handle or (x_handle or '')
+                        content: str = f"Reply as CZ (style only, non-impersonating). Keep under 240 chars. Context: {content}"
+                        timestamp: _dt = _dt.now()
+                    text = await claude.reply(_P())
+                    text = (text or _simple_cz_reply(content)).strip()
+                else:
+                    text = _simple_cz_reply(content)
+                print(f"[cyan]{i}/{len(targets)} Replying to {url}:\n  -> {text}")
+                if not dry_run:
+                    await bot.reply(url, text)
+
+    asyncio.run(_run())
+@app.command("auto-reply")
+def auto_reply(
+    profile: str = typer.Option("4botbsc", help="Profile name to use for session"),
+    vterm_base: str = typer.Option("http://127.0.0.1:9876", help="VTerm HTTP base URL"),
+    vterm_token: Optional[str] = typer.Option(None, help="VTerm HTTP token (if configured)"),
+    system_path: Path = typer.Option(Path("CLAUDE.md"), help="CZ persona system prompt path"),
+) -> None:
+    """Launch a headless, in-memory daemon that replies to posts not from our handle as CZ."""
+    from .auto_responder import run as arun
+    arun(profile=profile, vterm_base=vterm_base, vterm_token=vterm_token, system_path=str(system_path), vterm_mode="run-pipe")
+
+@app.command("reply-from-list")
+def reply_from_list(
+    list_path: Path = typer.Option(Path("Docs/4Bot Tweets.md"), help="Markdown with tweet URLs"),
+    profile: str = typer.Option("4botbsc", help="Profile/session name"),
+    headless: bool = typer.Option(True, help="Run headless"),
+    x_user: Optional[str] = typer.Option(None, help="X username/email"),
+    x_handle: Optional[str] = typer.Option("4botbsc", help="Our handle (exclude author check)"),
+    system_path: Path = typer.Option(Path("CLAUDE.md"), help="CZ system prompt path (style only)"),
+    vterm_base: Optional[str] = typer.Option(None, help="Claude VTerm HTTP base (optional)"),
+    vterm_token: Optional[str] = typer.Option(None, help="VTerm token"),
+    max_replies: int = typer.Option(200, help="Cap number of replies"),
+    dry_run: bool = typer.Option(False, help="Do not post; print only"),
+) -> None:
+    import os, re, asyncio
+    from .profiles import profile_paths
+
+    if x_user:
+        os.environ['X_USER'] = x_user
+    if x_handle:
+        os.environ['X_HANDLE'] = x_handle
+
+    cfg = Config.from_env()
+    cfg.headless = headless
+    # prefer config/profiles/<name>/storageState.json
+    cfg_storage = Path("config/profiles") / profile / "storageState.json"
+    if cfg_storage.exists():
+        cfg.storage_state = cfg_storage
+        cfg.user_data_dir = Path(".x-user") / profile
+    else:
+        s, u = profile_paths(profile)
+        cfg.storage_state = s
+        cfg.user_data_dir = u
+
+    text = list_path.read_text(encoding="utf-8")
+    urls = re.findall(r"\[[^\]]+\]\((https?://x\.com/[^)]+)\)", text) + re.findall(r"(?<!\()\bhttps?://x\.com/[^\s)]+", text)
+    urls = [u.strip().rstrip(").,;") for u in urls]
+    seen = set(); dedup = []
+    for u in urls:
+        if u not in seen:
+            seen.add(u); dedup.append(u)
+    dedup = dedup[:max_replies]
+
+    system_prompt = system_path.read_text(encoding="utf-8") if system_path.exists() else ""
+    claude = None
+    if vterm_base:
+        claude = ClaudeGen(base=vterm_base, token=vterm_token, system_prompt=system_prompt, mode="run-pipe")
+
+    def _simple_cz_reply(content: str) -> str:
+        base = "4. BUIDL > FUD. Long-term > noise."
+        cl = (content or '').lower()
+        hint = (
+            " Welcome clear rules; collaborate, protect users." if any(k in cl for k in ("sec","reg","doj","ban","illegal","fine")) else
+            " Focus on real builders; avoid rumors." if any(k in cl for k in ("scam","rug","ponzi")) else
+            " Transparency, fix fast, users first." if any(k in cl for k in ("hack","exploit","breach","drain")) else
+            " Zoom out. Tech adoption compounds." if any(k in cl for k in ("dead","zero","collapse","insolvent")) else
+            " Keep users #SAFU."
+        )
+        txt = f"{base}{hint} — CZ-inspired"
+        return txt[:240]
+
+    async def _run():
+        if claude:
+            await claude.ensure_ready()
+        from .browser import Browser
+        from .flows.login import login_if_needed
+        bot = XBot(cfg)
+        async with Browser(cfg, label="reply_from_list") as b:
+            await login_if_needed(b.page, cfg)
+            for i, url in enumerate(dedup, 1):
+                content_hint = f"Reply as CZ (style only). Keep under 240 chars."
+                text = None
+                if claude:
+                    from dataclasses import dataclass
+                    from datetime import datetime as _dt
+                    @dataclass
+                    class _P:
+                        author: str = ''
+                        author_handle: str = cfg.handle or (x_handle or '')
+                        content: str = content_hint
+                        timestamp: _dt = _dt.now()
+                    text = await claude.reply(_P())
+                if not text:
+                    text = _simple_cz_reply("")
+                print(f"[cyan]{i}/{len(dedup)} Replying to {url}:\n  -> {text}")
+                if not dry_run:
+                    await bot.reply(url, text)
+
+    asyncio.run(_run())
+@app.command("reply-from-file")
+def reply_from_file(
+    profile: str = typer.Option("4botbsc", help="Profile to use for session"),
+    list_path: Path = typer.Option(Path("Docs/4Bot Tweets.md"), help="Markdown or text file with one or more X status URLs"),
+    headless: bool = typer.Option(True, help="Run headless (in-memory; does not persist session)"),
+    vterm_base: Optional[str] = typer.Option(None, help="Optional VTerm HTTP base for Claude CZ style"),
+    vterm_token: Optional[str] = typer.Option(None, help="VTerm HTTP token"),
+    system_path: Path = typer.Option(Path("CLAUDE.md"), help="CZ persona system prompt path"),
+    x_user: Optional[str] = typer.Option(None, help="X username/email"),
+    x_handle: Optional[str] = typer.Option("4botbsc", help="Our handle (no @)"),
+    dry_run: bool = typer.Option(False, help="Print plan only; do not post"),
+) -> None:
+    import re, asyncio
+    if x_user:
+        import os as _os
+        _os.environ['X_USER'] = x_user
+    if x_handle:
+        import os as _os
+        _os.environ['X_HANDLE'] = x_handle
+    cfg = Config.from_env()
+    cfg.headless = bool(headless)
+    # Prefer using the existing on-disk profile for a logged-in session (headless-persistent)
+    cfg.persist_session = True
+    # Prefer config/profiles/<name>/storageState.json when present
+    cfg_storage = Path("config/profiles") / profile / "storageState.json"
+    if cfg_storage.exists():
+        cfg.storage_state = cfg_storage
+        cfg.user_data_dir = Path(".x-user") / profile
+    else:
+        s, u = profile_paths(profile)
+        cfg.storage_state = s
+        cfg.user_data_dir = u
+    # Provide a stable desktop UA if none set
+    if not cfg.user_agent:
+        cfg.user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    # Load optional Claude
+    claude = None
+    if vterm_base:
+        system_prompt = system_path.read_text(encoding="utf-8") if system_path.exists() else ""
+        claude = ClaudeGen(base=vterm_base, token=vterm_token, system_prompt=system_prompt, mode="run-pipe")
+
+    text = list_path.read_text(encoding="utf-8")
+    urls = re.findall(r"https?://x\.com/[^\s\)\]\}]+", text)
+    urls = [u.rstrip(').,;*]') for u in urls]
+    # de-dup preserve order
+    seen = set(); dedup = []
+    for u in urls:
+        if u not in seen:
+            seen.add(u); dedup.append(u)
+
+    def _simple_cz_reply(content: str) -> str:
+        base = "4. Ignore FUD. BUIDL. Long-term > noise."
+        cl = (content or '').lower()
+        hint = (
+            " Clear rules help builders. #SAFU" if any(k in cl for k in ("reg","sec","policy","law")) else
+            " Focus on shipping real utility." if any(k in cl for k in ("scam","rug","ponzi")) else
+            " Resilience wins over cycles." if any(k in cl for k in ("dump","crash","bear","dead")) else
+            " Users first. Transparency matters."
+        )
+        return (f"{base} {hint} — CZ-inspired")[:240]
+
+    async def _run():
+        if claude:
+            try:
+                await claude.ensure_ready()
+            except Exception:
+                pass
+        bot = XBot(cfg)
+        # Proactively open a page to trigger cookie/session load
+        from .browser import Browser
+        from .flows.login import login_if_needed
+        async with Browser(cfg, label="reply_from_file") as b:
+            try:
+                await login_if_needed(b.page, cfg)
+            except Exception:
+                pass
+            for i, url in enumerate(dedup, 1):
+                content_hint = f"Reply in CZ persona (style only, non-impersonating). Keep under 240 chars. URL: {url}"
+                if claude:
+                    from dataclasses import dataclass
+                    from datetime import datetime as _dt
+                    @dataclass
+                    class _P:
+                        author: str = ''
+                        author_handle: str = cfg.handle or (x_handle or '')
+                        content: str = content_hint
+                        timestamp: _dt = _dt.now()
+                    text = (await claude.reply(_P())) or _simple_cz_reply(content_hint)
+                else:
+                    text = _simple_cz_reply(content_hint)
+                text = text.strip()[:280]
+                print(f"[{i}/{len(dedup)}] Replying to {url}: {text}")
+                if not dry_run:
+                    try:
+                        await bot.reply(url, text)
+                    except Exception as e:
+                        print({"error": str(e), "url": url})
+
+    asyncio.run(_run())
 
 if __name__ == "__main__":
     app()

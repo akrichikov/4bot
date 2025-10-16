@@ -1,13 +1,19 @@
 from __future__ import annotations
 
 # Centralized selectors with stable-first strategy.
-PROFILE_ANCHOR = "a[aria-label='Profile'], a[aria-label='Profile menu']"
+# Profile nav anchor (robust to UI variants). Prefer stable data-testid where available,
+# but retain aria-label fallbacks for older layouts.
+PROFILE_ANCHOR = (
+    "a[role='link'][data-testid='AppTabBar_Profile_Link']",
+    "a[aria-label='Profile']",
+    "a[aria-label='Profile menu']",
+)
 
 # Login flow
 LOGIN_USERNAME = "input[name='text'], input[autocomplete='username']"
 LOGIN_NEXT = "div[role='button'][data-testid='LoginForm_Login_Button'], div[role='button'][data-testid='ocfEnterTextNextButton'], div[role='button'][data-testid='next_button']"
 LOGIN_PASSWORD = "input[name='password'], input[autocomplete='current-password']"
-LOGIN_SUBMIT = "div[role='button'][data-testid='LoginForm_Login_Button'], div[role='button'][data-testid='LoginForm_Submit_Button']"
+LOGIN_SUBMIT = "div[role='button'][data-testid='LoginForm_Login_Button'], div[role='button'][data-testid='LoginForm_Submit_Button'], div[role='button'][data-testid='ocfContinueButton']"
 LOGIN_2FA = "input[name='text'][inputmode='numeric']"
 
 # Compose

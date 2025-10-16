@@ -48,10 +48,13 @@ jobs:
             ${ { github.event.inputs.tweet_url && format('--tweet-url {0}', github.event.inputs.tweet_url) } } \
             ${ { github.event.inputs.profile && format('--profile {0}', github.event.inputs.profile) } }
           echo "Wrote $json_out"
+      - name: Generate vterm audit report
+        if: env.XBOT_HEALTH_ENABLED == 'true'
+        run: |
+          python -m xbot.cli report vterm-audit --log Docs/status/vterm_audit.jsonl --out-html Docs/status/vterm_audit_report.html --out-json Docs/status/vterm_audit_summary.json || true
       - name: Upload Docs/status
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: docs-status
           path: Docs/status
-

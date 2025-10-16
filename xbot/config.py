@@ -101,6 +101,10 @@ class Config(BaseModel):
         load_dotenv()
         from os import getenv
 
+        # Support both UPPERCASE and lowercase keys (loaded from .env)
+        xu = getenv("X_USER") or getenv("USERNAME") or getenv("x_user")
+        xp = getenv("X_PASSWORD") or getenv("PASSWORD") or getenv("x_passwd") or getenv("x_password")
+        xe = getenv("X_EMAIL") or getenv("EMAIL") or getenv("x_email")
         cfg = cls(
             headless=_parse_bool(getenv("HEADLESS", "true")),
             persist_session=_parse_bool(getenv("PERSIST_SESSION", "true")),
@@ -109,9 +113,9 @@ class Config(BaseModel):
             proxy_url=getenv("PROXY_URL"),
             base_url=getenv("BASE_URL", "https://x.com"),
             login_method=(getenv("LOGIN_METHOD", "cookies").lower() or "cookies"),
-            username=getenv("X_USER") or getenv("USERNAME"),
-            password=getenv("X_PASSWORD") or getenv("PASSWORD"),
-            email=getenv("X_EMAIL") or getenv("EMAIL"),
+            username=xu,
+            password=xp,
+            email=xe,
             handle=(getenv("X_HANDLE") or None),
             twofa=getenv("X_2FA_CODE") or getenv("TWOFA"),
             totp_secret=getenv("X_TOTP_SECRET") or getenv("TOTP_SECRET"),

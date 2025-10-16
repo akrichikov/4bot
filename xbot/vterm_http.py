@@ -5,12 +5,15 @@ import json
 import time
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
+import threading
+import os
 
 from aiohttp import web
 
 from .vterm import VTerm
 from pathlib import Path as _Path
 from collections import deque
+from math import inf
 
 
 class _TokenBucket:
@@ -37,6 +40,7 @@ class VTermHTTPServer:
         host: str = "127.0.0.1",
         port: int = 8765,
         token: str | None = None,
+        admin_token: str | None = None,
         rate_qps: Optional[float] = None,
         rate_burst: int = 5,
         audit_log: Optional[Path] = None,
@@ -50,6 +54,7 @@ class VTermHTTPServer:
         self.rate_burst = rate_burst
         self.audit_log = audit_log
         self.audit_enabled = audit_enabled
+        self.admin_token = admin_token
         self._buckets: dict[str, _TokenBucket] = {}
         self.app = web.Application()
         self._metrics = {
@@ -60,6 +65,12 @@ class VTermHTTPServer:
         from collections import defaultdict as _dd
         self._metrics_by_path = _dd(int)
         self._run_exit_codes = _dd(int)
+        self._run_hist = {
+            "buckets": [0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0, inf],
+            "counts": {0.05: 0, 0.1: 0, 0.25: 0, 0.5: 0, 1.0: 0, 2.0: 0, 5.0: 0, inf: 0},
+            "sum": 0.0,
+            "cnt": 0,
+        }
         self._events: deque[Dict[str, Any]] = deque(maxlen=200)
         self.app.add_routes(
             [
@@ -72,8 +83,19 @@ class VTermHTTPServer:
                 web.get("/read", self.read_structured),
                 web.get("/tail", self.tail),
                 web.get("/ws", self.ws_stream),
+                web.post("/admin/shutdown", self.admin_shutdown),
+                web.post("/queue/run", self.queue_run),
+                web.get("/queue", self.queue_list),
+                web.get("/queue/{job_id}", self.queue_get),
             ]
         )
+        # serialize run() operations to avoid interleaving
+        self._run_lock = asyncio.Lock()
+        self._jobs: dict[int, dict] = {}
+        self._job_queue: asyncio.Queue[dict] = asyncio.Queue()
+        self._job_counter = 0
+        self.app.on_startup.append(self._startup)
+        self.app.on_cleanup.append(self._cleanup)
 
     def _auth(self, request: web.Request) -> bool:
         self._metrics["requests_total"] += 1
@@ -139,11 +161,25 @@ class VTermHTTPServer:
         timeout = float(payload.get("timeout", 10.0))
         if not cmd:
             return web.json_response({"error": "missing cmd"}, status=400)
-        res = self.vt.run(cmd, timeout=timeout)
+        t0 = time.perf_counter()
+        loop = asyncio.get_running_loop()
+        async with self._run_lock:
+            res = await loop.run_in_executor(None, lambda: self.vt.run(cmd, timeout=timeout))
+        dur = max(0.0, time.perf_counter() - t0)
         data = json.loads(res.to_json())
         self._audit({"path": "/run", "auth": True, "cmd": cmd, "exit_code": data.get("exit_code")})
         try:
             self._run_exit_codes[str(data.get("exit_code"))] += 1
+        except Exception:
+            pass
+        # observe histogram
+        try:
+            self._run_hist["sum"] += dur
+            self._run_hist["cnt"] += 1
+            for b in self._run_hist["buckets"]:
+                if dur <= b:
+                    self._run_hist["counts"][b] += 1
+                    break
         except Exception:
             pass
         try:
@@ -177,8 +213,94 @@ class VTermHTTPServer:
             lines.append(f'vterm_requests_by_path{{path="{path}"}} {c}')
         for ec, c in sorted(self._run_exit_codes.items()):
             lines.append(f'vterm_run_exit_codes{{code="{ec}"}} {c}')
+        # histogram exposition
+        hist = self._run_hist
+        for b in hist["buckets"]:
+            le = "+Inf" if b is inf else ("%.2f" % b).rstrip('0').rstrip('.')
+            lines.append(f'vterm_run_duration_seconds_bucket{{le="{le}"}} {hist["counts"].get(b,0)}')
+        lines.append(f'vterm_run_duration_seconds_sum {hist["sum"]}')
+        lines.append(f'vterm_run_duration_seconds_count {hist["cnt"]}')
         body = "\n".join(lines) + "\n"
         return web.Response(text=body, content_type="text/plain; version=0.0.4")
+
+    async def admin_shutdown(self, request: web.Request) -> web.Response:
+        # Require explicit admin token distinct from normal token when provided
+        tok = request.headers.get("X-VTerm-Admin") or request.query.get("admin")
+        if self.admin_token and tok != self.admin_token:
+            return web.json_response({"error": "unauthorized"}, status=401)
+        # Respond OK, then terminate process shortly after
+        def _exit():
+            try:
+                self.vt.close()
+            finally:
+                os._exit(0)
+        threading.Timer(0.15, _exit).start()
+        return web.json_response({"ok": True, "shutting_down": True})
+
+    async def _startup(self, app: web.Application) -> None:
+        self._worker_task = asyncio.create_task(self._job_worker())
+
+    async def _cleanup(self, app: web.Application) -> None:
+        try:
+            self._worker_task.cancel()  # type: ignore[attr-defined]
+        except Exception:
+            pass
+        await asyncio.sleep(0)
+
+    # --------------- queue API -----------------
+    async def queue_run(self, request: web.Request) -> web.Response:
+        if not self._auth(request):
+            return web.json_response({"error": "unauthorized"}, status=401)
+        payload: Dict[str, Any] = await request.json()
+        cmd = str(payload.get("cmd", ""))
+        timeout = float(payload.get("timeout", 10.0))
+        if not cmd:
+            return web.json_response({"error": "missing cmd"}, status=400)
+        self._job_counter += 1
+        jid = self._job_counter
+        job = {"id": jid, "cmd": cmd, "timeout": timeout, "status": "pending", "result": None}
+        self._jobs[jid] = job
+        await self._job_queue.put(job)
+        return web.json_response({"job_id": jid, "status": job["status"]})
+
+    async def queue_list(self, request: web.Request) -> web.Response:
+        if not self._auth(request):
+            return web.json_response({"error": "unauthorized"}, status=401)
+        jobs = list(sorted(self._jobs.values(), key=lambda j: j["id"], reverse=True))[:50]
+        return web.json_response({"jobs": [{k: v for k, v in j.items() if k != "result"} for j in jobs]})
+
+    async def queue_get(self, request: web.Request) -> web.Response:
+        if not self._auth(request):
+            return web.json_response({"error": "unauthorized"}, status=401)
+        try:
+            jid = int(request.match_info.get("job_id") or "0")
+        except Exception:
+            return web.json_response({"error": "invalid id"}, status=400)
+        job = self._jobs.get(jid)
+        if not job:
+            return web.json_response({"error": "not_found"}, status=404)
+        return web.json_response({"id": job["id"], "status": job["status"], "result": job.get("result")})
+
+    async def _job_worker(self) -> None:
+        while True:
+            job = await self._job_queue.get()
+            job["status"] = "running"
+            try:
+                loop = asyncio.get_running_loop()
+                async with self._run_lock:
+                    res = await loop.run_in_executor(None, lambda: self.vt.run(job["cmd"], timeout=job["timeout"]))
+                data = json.loads(res.to_json())
+                job["result"] = data
+                job["status"] = "done"
+                try:
+                    self._events.append({"type": "run", **data})
+                except Exception:
+                    pass
+            except Exception as e:
+                job["status"] = "error"
+                job["result"] = {"error": str(e)}
+            finally:
+                self._job_queue.task_done()
 
     async def write_text(self, request: web.Request) -> web.Response:
         if not self._auth(request):

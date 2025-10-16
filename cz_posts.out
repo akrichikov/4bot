@@ -1,0 +1,16 @@
+[21:33:17] Post 1/20: py working_notification_json_parser.py 
+x_in_memory_bot.egg-info xbot
+__VTERM__> __VTERM__> bash: Everything: command not found
+[ERROR/SYSTEM] Unexpected error in :432: Everything you say flows from these 
+simple truths. Live them.
+__VTERM__>
+{
+    'error': 'Locator.fill: Timeout 30000ms exceeded.\nCall log:\n  - waiting 
+for locator("input[name=\'text\'], input[autocomplete=\'username\']").first\n'
+}
+[21:39:50] Post 2/20: py working_notification_json_parser.py 
+x_in_memory_bot.egg-info xbot
+__VTERM__> __VTERM__> bash: Everything: command not found
+[ERROR/SYSTEM] Unexpected error in :640: Everything you say flows from these 
+simple truths. Live them.
+__VTERM__>

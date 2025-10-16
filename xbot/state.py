@@ -30,7 +30,7 @@ async def apply_storage_state(context: BrowserContext, storage_file: Path) -> No
                 if name is None or value is None:
                     continue
                 await page.evaluate(
-                    "(n, v) => localStorage.setItem(n, v)", name, value
+                    "([n, v]) => localStorage.setItem(n, v)", [name, value]
                 )
         await page.close()
 
@@ -38,4 +38,3 @@ async def apply_storage_state(context: BrowserContext, storage_file: Path) -> No
 async def export_storage_state(context: BrowserContext, storage_file: Path) -> None:
     storage_file.parent.mkdir(parents=True, exist_ok=True)
     await context.storage_state(path=str(storage_file))  # type: ignore[arg-type]
-

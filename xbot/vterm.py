@@ -8,6 +8,7 @@ import shlex
 import signal
 import time
 from dataclasses import dataclass
+import warnings
 from select import select
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -89,7 +90,16 @@ class VTerm:
         fcntl.fcntl(master_fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
 
         # Spawn child shell attached to PTY
-        pid = os.fork()
+        # Python 3.12+ emits a DeprecationWarning when forking in a multi-threaded
+        # process. The PTY child creation here is intentional and safe in this
+        # context; silence only this specific warning.
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message=r".*multi-threaded, use of fork\(\) may lead to deadlocks.*",
+                category=DeprecationWarning,
+            )
+            pid = os.fork()
         if pid == 0:  # Child
             try:
                 os.setsid()

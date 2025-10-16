@@ -21,29 +21,60 @@ from ..selectors import (
 
 async def is_logged_in(page: Page) -> bool:
     try:
-        return await page.locator(PROFILE_ANCHOR).first.is_visible()
+        if await page.locator(PROFILE_ANCHOR).first.is_visible():
+            return True
     except Exception:
-        return False
+        pass
+    try:
+        from ..selectors import COMPOSE_OPENERS, FEED_COMPOSER_HITBOX
+        candidates = (
+            "div[role='button'][data-testid='SideNav_AccountSwitcher_Button']",
+            *COMPOSE_OPENERS,
+            *FEED_COMPOSER_HITBOX,
+        )
+        for sel in candidates:
+            try:
+                loc = page.locator(sel)
+                if await loc.count() > 0:
+                    return True
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return False
 
 
 async def login_if_needed(page: Page, cfg: Config) -> None:
-    if await is_logged_in(page):
-        return
-    await page.goto(f"{cfg.base_url}/login", wait_until="domcontentloaded")
-    await _fill_username(page, cfg.username)
-    await _click_first(page, LOGIN_NEXT)
-    await _fill_password(page, cfg.password)
-    await _click_first(page, LOGIN_SUBMIT)
-
-    if cfg.twofa or cfg.totp_secret:
-        await _maybe_fill_2fa(page, cfg.twofa, cfg.totp_secret)
-
-    # Post-login wait and verification
-    for _ in range(20):
+    # First attempt cookie-based session by visiting the home timeline (uses existing cookies)
+    try:
+        await page.goto(f"{cfg.base_url}/home", wait_until="domcontentloaded")
         if await is_logged_in(page):
             return
-        await sleep(0.5)
-    raise RuntimeError("Login failed: profile anchor not visible.")
+    except Exception:
+        # proceed to interactive flow
+        pass
+    # Try legacy and modern login flows
+    for path in ("/login", "/i/flow/login"):
+        try:
+            await page.goto(f"{cfg.base_url}{path}", wait_until="domcontentloaded")
+        except Exception:
+            continue
+        try:
+            await _fill_username(page, cfg.username)
+            await _click_first(page, LOGIN_NEXT)
+            await _fill_password(page, cfg.password)
+            await _click_first(page, LOGIN_SUBMIT)
+            if cfg.twofa or cfg.totp_secret:
+                await _maybe_fill_2fa(page, cfg.twofa, cfg.totp_secret)
+            # Post-login wait and verification
+            for _ in range(20):
+                if await is_logged_in(page):
+                    return
+                await sleep(0.5)
+        except Exception:
+            # Try next path variant
+            continue
+    raise RuntimeError("Login failed: unable to locate login form or verify session.")
 
 
 async def _fill_username(page: Page, username: Optional[str]) -> None:

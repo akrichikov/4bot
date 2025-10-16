@@ -41,5 +41,4 @@ jobs:
         run: |
           python -m playwright install chromium
       - name: Run tests (non-live)
-        run: pytest -q -k "not browser_cookie_test and not live"
-
+        run: pytest -q -k "not browser_cookie_test and not live and not rabbitmq"

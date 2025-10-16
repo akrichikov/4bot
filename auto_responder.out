@@ -1,0 +1,27 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/doctordre/projects/4bot/xbot/auto_responder.py", line 164, in <module>
+    run(a.profile, a.vterm_base, a.vterm_token, a.system_path, a.vterm_mode)
+    ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/doctordre/projects/4bot/xbot/auto_responder.py", line 151, in run
+    asyncio.run(_main())
+    ~~~~~~~~~~~^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.0/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/runners.py", line 204, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.0/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/runners.py", line 127, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.0/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 719, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/Users/doctordre/projects/4bot/xbot/auto_responder.py", line 149, in _main
+    await _monitor_pages(cfg, claude, handle)
+  File "/Users/doctordre/projects/4bot/xbot/auto_responder.py", line 88, in _monitor_pages
+    await login_if_needed(page, cfg)
+  File "/Users/doctordre/projects/4bot/xbot/flows/login.py", line 33, in login_if_needed
+    await _fill_username(page, cfg.username)
+  File "/Users/doctordre/projects/4bot/xbot/flows/login.py", line 51, in _fill_username
+    raise ValueError("USERNAME/X_USER is not set")
+ValueError: USERNAME/X_USER is not set

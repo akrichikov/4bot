@@ -1,0 +1,25 @@
+{
+  "steps": [
+    {"action": "post", "args": {"text": "Markets move. Builders don’t. Less noise, more signal. BUIDL."}, "delay_s": 0},
+    {"action": "post", "args": {"text": "4. Back to shipping. Focus beats outrage every time. BUIDL."}, "delay_s": 150},
+    {"action": "post", "args": {"text": "#SAFU isn’t a meme. It’s a promise. Protect users first, always."}, "delay_s": 125},
+    {"action": "post", "args": {"text": "Price is a screenshot; value is a journey. Play the long game."}, "delay_s": 165},
+    {"action": "post", "args": {"text": "Winners focus on winning. Losers focus on winners. BUIDL."}, "delay_s": 130},
+    {"action": "post", "args": {"text": "Clear, smart regulation protects users and innovation. Both can win."}, "delay_s": 170},
+    {"action": "post", "args": {"text": "Stop complaining, start building. Best time was yesterday. Next best is today."}, "delay_s": 140},
+    {"action": "post", "args": {"text": "Zoom out: tech compounds. Blockchains will feel as obvious as the internet."}, "delay_s": 160},
+    {"action": "post", "args": {"text": "Doing the right thing is hard and non‑negotiable. Trust compounds."}, "delay_s": 135},
+    {"action": "post", "args": {"text": "Less hype, more product. Ship, learn, iterate. BUIDL."}, "delay_s": 175},
+    {"action": "post", "args": {"text": "Big money is built slowly with stamina. Avoid shortcuts."}, "delay_s": 150},
+    {"action": "post", "args": {"text": "Education scales dignity. Giggle Academy matters. Let’s teach the world for free."}, "delay_s": 125},
+    {"action": "post", "args": {"text": "Most meme coins will fail. Utility endures. Choose to build."}, "delay_s": 165},
+    {"action": "post", "args": {"text": "We respect market cycles. We build through all of them. #BUIDL"}, "delay_s": 130},
+    {"action": "post", "args": {"text": "Security is a mindset. Review, test, recover. Users first. #SAFU"}, "delay_s": 170},
+    {"action": "post", "args": {"text": "Not financial advice: look for ethical teams building real utility."}, "delay_s": 140},
+    {"action": "post", "args": {"text": "Abundance mindset: partnerships > rivalry. A rising tide lifts all boats."}, "delay_s": 160},
+    {"action": "post", "args": {"text": "Simplicity is strength. Do a few things, perfectly."}, "delay_s": 135},
+    {"action": "post", "args": {"text": "AI is post‑blockchain in impact. Together they’ll reshape trust and tooling."}, "delay_s": 175},
+    {"action": "post", "args": {"text": "Own your results. No excuses. BUIDL."}, "delay_s": 150}
+  ]
+}
+

@@ -1,0 +1,688 @@
+{
+  "timestamp": "2025-10-16T23:59:20.128227",
+  "total_checked": 113,
+  "available_count": 25,
+  "unavailable_count": 88,
+  "available_tweets": [
+    {
+      "url": "https://x.com/bitcoindata21/status/1976989902295150920",
+      "username": "bitcoindata21",
+      "tweet_id": "1976989902295150920",
+      "line_number": 65
+    },
+    {
+      "url": "https://x.com/CryptoNobler/status/1978742203036921985",
+      "username": "CryptoNobler",
+      "tweet_id": "1978742203036921985",
+      "line_number": 66
+    },
+    {
+      "url": "https://x.com/newmichwill/status/1978734490068353233",
+      "username": "newmichwill",
+      "tweet_id": "1978734490068353233",
+      "line_number": 67
+    },
+    {
+      "url": "https://x.com/dannycheng2022/status/1978717313923985616",
+      "username": "dannycheng2022",
+      "tweet_id": "1978717313923985616",
+      "line_number": 68
+    },
+    {
+      "url": "https://x.com/73lV_/status/1978712157769384300",
+      "username": "73lV_",
+      "tweet_id": "1978712157769384300",
+      "line_number": 69
+    },
+    {
+      "url": "https://x.com/BossBlunts1/status/1978569415214891189",
+      "username": "BossBlunts1",
+      "tweet_id": "1978569415214891189",
+      "line_number": 70
+    },
+    {
+      "url": "https://x.com/EddyXBT/status/1978718956396359748",
+      "username": "EddyXBT",
+      "tweet_id": "1978718956396359748",
+      "line_number": 71
+    },
+    {
+      "url": "https://x.com/RuneCrypto_/status/1978416856298877304",
+      "username": "RuneCrypto_",
+      "tweet_id": "1978416856298877304",
+      "line_number": 73
+    },
+    {
+      "url": "https://x.com/Cointelegraph/status/1968548337163911538",
+      "username": "Cointelegraph",
+      "tweet_id": "1968548337163911538",
+      "line_number": 74
+    },
+    {
+      "url": "https://x.com/cas_abbe/status/1978500098590900356",
+      "username": "cas_abbe",
+      "tweet_id": "1978500098590900356",
+      "line_number": 75
+    },
+    {
+      "url": "https://x.com/vladsvitanko/status/1976955746056388918",
+      "username": "vladsvitanko",
+      "tweet_id": "1976955746056388918",
+      "line_number": 76
+    },
+    {
+      "url": "https://x.com/MartiniGuyYT/status/1972986601082110190",
+      "username": "MartiniGuyYT",
+      "tweet_id": "1972986601082110190",
+      "line_number": 77
+    },
+    {
+      "url": "https://x.com/easyeight08/status/1978478966337118394",
+      "username": "easyeight08",
+      "tweet_id": "1978478966337118394",
+      "line_number": 78
+    },
+    {
+      "url": "https://x.com/CryptoCurb/status/1978273155798958237",
+      "username": "CryptoCurb",
+      "tweet_id": "1978273155798958237",
+      "line_number": 79
+    },
+    {
+      "url": "https://x.com/Sykodelic_/status/1978728444038152542",
+      "username": "Sykodelic_",
+      "tweet_id": "1978728444038152542",
+      "line_number": 80
+    },
+    {
+      "url": "https://x.com/CryptoEmre10/status/1978524086872477726",
+      "username": "CryptoEmre10",
+      "tweet_id": "1978524086872477726",
+      "line_number": 84
+    },
+    {
+      "url": "https://x.com/CryptoNobler/status/1978526248524497193",
+      "username": "CryptoNobler",
+      "tweet_id": "1978526248524497193",
+      "line_number": 85
+    },
+    {
+      "url": "https://x.com/TheCryptoChefX/status/1978502026729242806",
+      "username": "TheCryptoChefX",
+      "tweet_id": "1978502026729242806",
+      "line_number": 86
+    },
+    {
+      "url": "https://x.com/vohvohh/status/1978543328393048487",
+      "username": "vohvohh",
+      "tweet_id": "1978543328393048487",
+      "line_number": 87
+    },
+    {
+      "url": "https://x.com/JamesWynnReal/status/1978696942566658205",
+      "username": "JamesWynnReal",
+      "tweet_id": "1978696942566658205",
+      "line_number": 88
+    },
+    {
+      "url": "https://x.com/crypto_bitlord7/status/1978518927249469911",
+      "username": "crypto_bitlord7",
+      "tweet_id": "1978518927249469911",
+      "line_number": 89
+    },
+    {
+      "url": "https://x.com/NMTD8/status/1978425567734067644",
+      "username": "NMTD8",
+      "tweet_id": "1978425567734067644",
+      "line_number": 90
+    },
+    {
+      "url": "https://x.com/JamesWynnReal/status/1978638345652826242",
+      "username": "JamesWynnReal",
+      "tweet_id": "1978638345652826242",
+      "line_number": 91
+    },
+    {
+      "url": "https://x.com/DeFiTracer/status/1978421539201511752",
+      "username": "DeFiTracer",
+      "tweet_id": "1978421539201511752",
+      "line_number": 92
+    },
+    {
+      "url": "https://x.com/cryptoknight890/status/1978525147750662447",
+      "username": "cryptoknight890",
+      "tweet_id": "1978525147750662447",
+      "line_number": 93
+    }
+  ],
+  "unavailable_tweets": [
+    {
+      "url": "https://x.com/onchainmonk/status/1978144776399569369",
+      "username": "onchainmonk",
+      "tweet_id": "1978144776399569369",
+      "line_number": 48
+    },
+    {
+      "url": "https://x.com/CryptosLaowai/status/1978437665188966691",
+      "username": "CryptosLaowai",
+      "tweet_id": "1978437665188966691",
+      "line_number": 49
+    },
+    {
+      "url": "https://x.com/AnasFalsharif/status/1978553295791603859",
+      "username": "AnasFalsharif",
+      "tweet_id": "1978553295791603859",
+      "line_number": 50
+    },
+    {
+      "url": "https://x.com/LeviRietveld/status/1978496276028125687",
+      "username": "LeviRietveld",
+      "tweet_id": "1978496276028125687",
+      "line_number": 51
+    },
+    {
+      "url": "https://x.com/Q\\_May\\_007/status/1978654063915831705",
+      "username": "Q\\_May\\_007",
+      "tweet_id": "1978654063915831705",
+      "line_number": 52
+    },
+    {
+      "url": "https://x.com/Q_May_007/status/1978654063915831705",
+      "username": "Q_May_007",
+      "tweet_id": "1978654063915831705",
+      "line_number": 52
+    },
+    {
+      "url": "https://x.com/BasedMoneyLich/status/1978173703792791579",
+      "username": "BasedMoneyLich",
+      "tweet_id": "1978173703792791579",
+      "line_number": 53
+    },
+    {
+      "url": "https://x.com/Obesepotato\\_hl/status/1974883763038703642",
+      "username": "Obesepotato\\_hl",
+      "tweet_id": "1974883763038703642",
+      "line_number": 54
+    },
+    {
+      "url": "https://x.com/Obesepotato_hl/status/1974883763038703642",
+      "username": "Obesepotato_hl",
+      "tweet_id": "1974883763038703642",
+      "line_number": 54
+    },
+    {
+      "url": "https://x.com/CryptoMocro\\_/status/1976199227756962119",
+      "username": "CryptoMocro\\_",
+      "tweet_id": "1976199227756962119",
+      "line_number": 55
+    },
+    {
+      "url": "https://x.com/CryptoMocro_/status/1976199227756962119",
+      "username": "CryptoMocro_",
+      "tweet_id": "1976199227756962119",
+      "line_number": 55
+    },
+    {
+      "url": "https://x.com/Geppetto\\_88/status/1970013107012710654",
+      "username": "Geppetto\\_88",
+      "tweet_id": "1970013107012710654",
+      "line_number": 56
+    },
+    {
+      "url": "https://x.com/Geppetto_88/status/1970013107012710654",
+      "username": "Geppetto_88",
+      "tweet_id": "1970013107012710654",
+      "line_number": 56
+    },
+    {
+      "url": "https://x.com/pain4playin/status/1976677406258896914",
+      "username": "pain4playin",
+      "tweet_id": "1976677406258896914",
+      "line_number": 57
+    },
+    {
+      "url": "https://x.com/pain4playin/status/1976307493878771779",
+      "username": "pain4playin",
+      "tweet_id": "1976307493878771779",
+      "line_number": 58
+    },
+    {
+      "url": "https://x.com/RuneCrypto\\_/status/1968771738537185325",
+      "username": "RuneCrypto\\_",
+      "tweet_id": "1968771738537185325",
+      "line_number": 59
+    },
+    {
+      "url": "https://x.com/RuneCrypto_/status/1968771738537185325",
+      "username": "RuneCrypto_",
+      "tweet_id": "1968771738537185325",
+      "line_number": 59
+    },
+    {
+      "url": "https://x.com/Lewsiphur/status/1968700195580903704",
+      "username": "Lewsiphur",
+      "tweet_id": "1968700195580903704",
+      "line_number": 60
+    },
+    {
+      "url": "https://x.com/purr\\_HL/status/1975641392195203319",
+      "username": "purr\\_HL",
+      "tweet_id": "1975641392195203319",
+      "line_number": 61
+    },
+    {
+      "url": "https://x.com/purr_HL/status/1975641392195203319",
+      "username": "purr_HL",
+      "tweet_id": "1975641392195203319",
+      "line_number": 61
+    },
+    {
+      "url": "https://x.com/quan\\_eth/status/1975661345346609256",
+      "username": "quan\\_eth",
+      "tweet_id": "1975661345346609256",
+      "line_number": 62
+    },
+    {
+      "url": "https://x.com/quan_eth/status/1975661345346609256",
+      "username": "quan_eth",
+      "tweet_id": "1975661345346609256",
+      "line_number": 62
+    },
+    {
+      "url": "https://x.com/0xEthanDG/status/1973831938868912626",
+      "username": "0xEthanDG",
+      "tweet_id": "1973831938868912626",
+      "line_number": 63
+    },
+    {
+      "url": "https://x.com/LeviRietveld/status/1977454297869582601",
+      "username": "LeviRietveld",
+      "tweet_id": "1977454297869582601",
+      "line_number": 64
+    },
+    {
+      "url": "https://x.com/73lV\\_/status/1978712157769384300",
+      "username": "73lV\\_",
+      "tweet_id": "1978712157769384300",
+      "line_number": 69
+    },
+    {
+      "url": "https://x.com/naiivememe/status/1976988342395994613",
+      "username": "naiivememe",
+      "tweet_id": "1976988342395994613",
+      "line_number": 72
+    },
+    {
+      "url": "https://x.com/RuneCrypto\\_/status/1978416856298877304",
+      "username": "RuneCrypto\\_",
+      "tweet_id": "1978416856298877304",
+      "line_number": 73
+    },
+    {
+      "url": "https://x.com/cas\\_abbe/status/1978500098590900356",
+      "username": "cas\\_abbe",
+      "tweet_id": "1978500098590900356",
+      "line_number": 75
+    },
+    {
+      "url": "https://x.com/Sykodelic\\_/status/1978728444038152542",
+      "username": "Sykodelic\\_",
+      "tweet_id": "1978728444038152542",
+      "line_number": 80
+    },
+    {
+      "url": "https://x.com/DefiWimar/status/1978744145540751397",
+      "username": "DefiWimar",
+      "tweet_id": "1978744145540751397",
+      "line_number": 81
+    },
+    {
+      "url": "https://x.com/0xPhilanthrop/status/1978502720035164333",
+      "username": "0xPhilanthrop",
+      "tweet_id": "1978502720035164333",
+      "line_number": 82
+    },
+    {
+      "url": "https://x.com/wacy\\_time1/status/1978747829846995058",
+      "username": "wacy\\_time1",
+      "tweet_id": "1978747829846995058",
+      "line_number": 83
+    },
+    {
+      "url": "https://x.com/wacy_time1/status/1978747829846995058",
+      "username": "wacy_time1",
+      "tweet_id": "1978747829846995058",
+      "line_number": 83
+    },
+    {
+      "url": "https://x.com/crypto\\_bitlord7/status/1978518927249469911",
+      "username": "crypto\\_bitlord7",
+      "tweet_id": "1978518927249469911",
+      "line_number": 89
+    },
+    {
+      "url": "https://x.com/DU09BTC/status/1978431721709203899",
+      "username": "DU09BTC",
+      "tweet_id": "1978431721709203899",
+      "line_number": 94
+    },
+    {
+      "url": "https://x.com/CryptoCurb/status/1978656334770831558",
+      "username": "CryptoCurb",
+      "tweet_id": "1978656334770831558",
+      "line_number": 95
+    },
+    {
+      "url": "https://x.com/CryptoNobler/status/1978471771100651677",
+      "username": "CryptoNobler",
+      "tweet_id": "1978471771100651677",
+      "line_number": 96
+    },
+    {
+      "url": "https://x.com/MaxCryptoxx/status/1978750461764108300",
+      "username": "MaxCryptoxx",
+      "tweet_id": "1978750461764108300",
+      "line_number": 97
+    },
+    {
+      "url": "https://x.com/LeonidasNFT/status/1978579938023211449",
+      "username": "LeonidasNFT",
+      "tweet_id": "1978579938023211449",
+      "line_number": 98
+    },
+    {
+      "url": "https://x.com/thisisksa/status/1978491782049497351",
+      "username": "thisisksa",
+      "tweet_id": "1978491782049497351",
+      "line_number": 99
+    },
+    {
+      "url": "https://x.com/Ordinal\\_News/status/1978381318430863416",
+      "username": "Ordinal\\_News",
+      "tweet_id": "1978381318430863416",
+      "line_number": 100
+    },
+    {
+      "url": "https://x.com/Ordinal_News/status/1978381318430863416",
+      "username": "Ordinal_News",
+      "tweet_id": "1978381318430863416",
+      "line_number": 100
+    },
+    {
+      "url": "https://x.com/NewsAsset/status/1978594703273562548",
+      "username": "NewsAsset",
+      "tweet_id": "1978594703273562548",
+      "line_number": 101
+    },
+    {
+      "url": "https://x.com/Danny\\_Crypton/status/1978426476933304332",
+      "username": "Danny\\_Crypton",
+      "tweet_id": "1978426476933304332",
+      "line_number": 102
+    },
+    {
+      "url": "https://x.com/Danny_Crypton/status/1978426476933304332",
+      "username": "Danny_Crypton",
+      "tweet_id": "1978426476933304332",
+      "line_number": 102
+    },
+    {
+      "url": "https://x.com/DefiWimar/status/1978738297615564847",
+      "username": "DefiWimar",
+      "tweet_id": "1978738297615564847",
+      "line_number": 103
+    },
+    {
+      "url": "https://x.com/ayyyeandy/status/1978459183075693001",
+      "username": "ayyyeandy",
+      "tweet_id": "1978459183075693001",
+      "line_number": 104
+    },
+    {
+      "url": "https://x.com/chip1cr/status/1978422977931735094",
+      "username": "chip1cr",
+      "tweet_id": "1978422977931735094",
+      "line_number": 105
+    },
+    {
+      "url": "https://x.com/ChiefraFba/status/1978746808634376406",
+      "username": "ChiefraFba",
+      "tweet_id": "1978746808634376406",
+      "line_number": 106
+    },
+    {
+      "url": "https://x.com/KookCapitalLLC/status/1978489120528715935",
+      "username": "KookCapitalLLC",
+      "tweet_id": "1978489120528715935",
+      "line_number": 107
+    },
+    {
+      "url": "https://x.com/easyeight08/status/1978426636392350135",
+      "username": "easyeight08",
+      "tweet_id": "1978426636392350135",
+      "line_number": 108
+    },
+    {
+      "url": "https://x.com/CarlBMenger/status/1978455567665385882",
+      "username": "CarlBMenger",
+      "tweet_id": "1978455567665385882",
+      "line_number": 109
+    },
+    {
+      "url": "https://x.com/Cointelegraph/status/1978755468173488197",
+      "username": "Cointelegraph",
+      "tweet_id": "1978755468173488197",
+      "line_number": 110
+    },
+    {
+      "url": "https://x.com/CryptoCurb/status/1978463725226021153",
+      "username": "CryptoCurb",
+      "tweet_id": "1978463725226021153",
+      "line_number": 111
+    },
+    {
+      "url": "https://x.com/CronosChaz/status/1978416284145496523",
+      "username": "CronosChaz",
+      "tweet_id": "1978416284145496523",
+      "line_number": 112
+    },
+    {
+      "url": "https://x.com/BTCjunkies/status/1978673695280255285",
+      "username": "BTCjunkies",
+      "tweet_id": "1978673695280255285",
+      "line_number": 113
+    },
+    {
+      "url": "https://x.com/kyle\\_chasse/status/1978744569370972521",
+      "username": "kyle\\_chasse",
+      "tweet_id": "1978744569370972521",
+      "line_number": 114
+    },
+    {
+      "url": "https://x.com/kyle_chasse/status/1978744569370972521",
+      "username": "kyle_chasse",
+      "tweet_id": "1978744569370972521",
+      "line_number": 114
+    },
+    {
+      "url": "https://x.com/CryptoWestttt/status/1978494337932538227",
+      "username": "CryptoWestttt",
+      "tweet_id": "1978494337932538227",
+      "line_number": 115
+    },
+    {
+      "url": "https://x.com/kris/status/1976939942254461094",
+      "username": "kris",
+      "tweet_id": "1976939942254461094",
+      "line_number": 116
+    },
+    {
+      "url": "https://x.com/rektfencer/status/1978537709351076095",
+      "username": "rektfencer",
+      "tweet_id": "1978537709351076095",
+      "line_number": 117
+    },
+    {
+      "url": "https://x.com/ChinaWhaleETH/status/1978397092818330084",
+      "username": "ChinaWhaleETH",
+      "tweet_id": "1978397092818330084",
+      "line_number": 118
+    },
+    {
+      "url": "https://x.com/LeonidasNFT/status/1978585370116673781",
+      "username": "LeonidasNFT",
+      "tweet_id": "1978585370116673781",
+      "line_number": 119
+    },
+    {
+      "url": "https://x.com/Pampadalampa/status/1978461665289978015",
+      "username": "Pampadalampa",
+      "tweet_id": "1978461665289978015",
+      "line_number": 120
+    },
+    {
+      "url": "https://x.com/CryptoCurb/status/1978423241749225889",
+      "username": "CryptoCurb",
+      "tweet_id": "1978423241749225889",
+      "line_number": 121
+    },
+    {
+      "url": "https://x.com/LeviRietveld/status/1978493061601910950",
+      "username": "LeviRietveld",
+      "tweet_id": "1978493061601910950",
+      "line_number": 122
+    },
+    {
+      "url": "https://x.com/Chilearmy123/status/1978468814930284668",
+      "username": "Chilearmy123",
+      "tweet_id": "1978468814930284668",
+      "line_number": 123
+    },
+    {
+      "url": "https://x.com/MastrXYZ/status/1978525330278158702",
+      "username": "MastrXYZ",
+      "tweet_id": "1978525330278158702",
+      "line_number": 124
+    },
+    {
+      "url": "https://x.com/NMTD8/status/1978470337235779654",
+      "username": "NMTD8",
+      "tweet_id": "1978470337235779654",
+      "line_number": 125
+    },
+    {
+      "url": "https://x.com/TheOG\\_General/status/1978343263078654234",
+      "username": "TheOG\\_General",
+      "tweet_id": "1978343263078654234",
+      "line_number": 126
+    },
+    {
+      "url": "https://x.com/TheOG_General/status/1978343263078654234",
+      "username": "TheOG_General",
+      "tweet_id": "1978343263078654234",
+      "line_number": 126
+    },
+    {
+      "url": "https://x.com/easyeight08/status/1978490841426497548",
+      "username": "easyeight08",
+      "tweet_id": "1978490841426497548",
+      "line_number": 127
+    },
+    {
+      "url": "https://x.com/CryptoNobler/status/1978349601557000378",
+      "username": "CryptoNobler",
+      "tweet_id": "1978349601557000378",
+      "line_number": 128
+    },
+    {
+      "url": "https://x.com/CryptoWestttt/status/1978427710058738145",
+      "username": "CryptoWestttt",
+      "tweet_id": "1978427710058738145",
+      "line_number": 129
+    },
+    {
+      "url": "https://x.com/Av\\_Sebastian/status/1978477638722416752",
+      "username": "Av\\_Sebastian",
+      "tweet_id": "1978477638722416752",
+      "line_number": 130
+    },
+    {
+      "url": "https://x.com/Av_Sebastian/status/1978477638722416752",
+      "username": "Av_Sebastian",
+      "tweet_id": "1978477638722416752",
+      "line_number": 130
+    },
+    {
+      "url": "https://x.com/0xGumshoe/status/1978423656079409236",
+      "username": "0xGumshoe",
+      "tweet_id": "1978423656079409236",
+      "line_number": 131
+    },
+    {
+      "url": "https://x.com/WhaleFUD/status/1978478467084865542",
+      "username": "WhaleFUD",
+      "tweet_id": "1978478467084865542",
+      "line_number": 132
+    },
+    {
+      "url": "https://x.com/cryptoknight890/status/1978476871189676220",
+      "username": "cryptoknight890",
+      "tweet_id": "1978476871189676220",
+      "line_number": 133
+    },
+    {
+      "url": "https://x.com/chip1cr/status/1978463943946277211",
+      "username": "chip1cr",
+      "tweet_id": "1978463943946277211",
+      "line_number": 134
+    },
+    {
+      "url": "https://x.com/Ashcryptoreal/status/1978485304647704692",
+      "username": "Ashcryptoreal",
+      "tweet_id": "1978485304647704692",
+      "line_number": 135
+    },
+    {
+      "url": "https://x.com/LoveYouAllNFT/status/1978514090453598553",
+      "username": "LoveYouAllNFT",
+      "tweet_id": "1978514090453598553",
+      "line_number": 136
+    },
+    {
+      "url": "https://x.com/CryptoCurb/status/1978454274875998688",
+      "username": "CryptoCurb",
+      "tweet_id": "1978454274875998688",
+      "line_number": 137
+    },
+    {
+      "url": "https://x.com/ChinaWhaleETH/status/1978735593028026853",
+      "username": "ChinaWhaleETH",
+      "tweet_id": "1978735593028026853",
+      "line_number": 138
+    },
+    {
+      "url": "https://x.com/LearnRony/status/1978466210686836973",
+      "username": "LearnRony",
+      "tweet_id": "1978466210686836973",
+      "line_number": 139
+    },
+    {
+      "url": "https://x.com/rasmr\\_eth/status/1978504862829572606",
+      "username": "rasmr\\_eth",
+      "tweet_id": "1978504862829572606",
+      "line_number": 140
+    },
+    {
+      "url": "https://x.com/rasmr_eth/status/1978504862829572606",
+      "username": "rasmr_eth",
+      "tweet_id": "1978504862829572606",
+      "line_number": 140
+    },
+    {
+      "url": "https://x.com/BDCryptoGuru/status/1978771527710507269",
+      "username": "BDCryptoGuru",
+      "tweet_id": "1978771527710507269",
+      "line_number": 144
+    }
+  ]
+}

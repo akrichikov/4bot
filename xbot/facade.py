@@ -110,55 +110,48 @@ class XBot:
         await self.rate.wait("reply")
         async with Browser(self.cfg, label="reply") as b:
             page = b.page
-            await login_if_needed(page, self.cfg)
             async with self.log.action("reply", {"url": url, "len": len(text)}):
-                await page.goto(_to_status(self.cfg, url), wait_until="domcontentloaded")
-                await click_when_ready(page, REPLY_BUTTON)
+                target_url = _to_status(self.cfg, url)
                 try:
-                    if self.cfg.humanize:
-                        await type_text(page.locator(REPLY_TEXTBOX).first, text, self.cfg.type_min_ms, self.cfg.type_max_ms)
-                    else:
-                        await page.locator(REPLY_TEXTBOX).first.fill(text)
-                    await click_any_when_ready(page, REPLY_SUBMIT)
-                    await sleep(1.0)
-                    confirmed = await wait_toast(page, TOAST_REGION, timeout_ms=self.cfg.toast_timeout_ms) if 'TOAST_REGION' in globals() else False
-                    if self.cfg.confirm_content_enabled and not confirmed:
-                        # try to locate our reply text in thread; prefer author match if handle known
-                        if self.cfg.handle:
-                            confirmed = await wait_reply_by_author(page, self.cfg.handle, text, timeout_ms=self.cfg.content_confirm_timeout_ms)
-                        if not confirmed:
-                            confirmed = await wait_text_in(page, TWEET_TEXT_SELECTORS, text, timeout_ms=self.cfg.content_confirm_timeout_ms)
-                    status_id = None
-                    if self.cfg.handle and confirmed:
-                        # attempt author-aware status id extraction from thread
-                        status_id = await extract_reply_status_id_from_thread(page, self.cfg.handle, text, timeout_ms=self.cfg.content_confirm_timeout_ms)
-                        if not status_id:
-                            # fallback to /with_replies timeline
-                            status_id = await extract_reply_status_id_from_with_replies(page, self.cfg.base_url, self.cfg.handle, text, max_articles=25, timeout_ms=self.cfg.content_confirm_timeout_ms)
-                    success = True
-                    if self.cfg.confirm_reply_strict and not confirmed:
-                        success = False
-                    record_action_result(
-                        "reply",
-                        success,
-                        self.cfg,
-                        {"url": url, "len": len(text), "confirm": ("toast" if confirmed else "unknown"), **({"status_id": status_id} if status_id else {})},
-                        trace_path=str(b.trace_path) if b.trace_path else None,
-                        har_path=str(b.har_path) if b.har_path else None,
-                    )
-                except Exception as e:
-                    paths = await capture_error(page, b._ctx, self.cfg, "reply")  # type: ignore[arg-type]
-                    self.log.artifact("reply", paths)
-                    record_action_result(
-                        "reply",
-                        False,
-                        self.cfg,
-                        {"url": url, "len": len(text), "error": classify_exception(e)},
-                        artifacts=paths,
-                        trace_path=str(b.trace_path) if b.trace_path else None,
-                        har_path=str(b.har_path) if b.har_path else None,
-                    )
-                    raise
+                    # Attempt with existing cookies/state first
+                    await page.goto(target_url, wait_until="domcontentloaded")
+                    await click_when_ready(page, REPLY_BUTTON)
+                except Exception:
+                    # Fallback: login, then retry
+                    await login_if_needed(page, self.cfg)
+                    await page.goto(target_url, wait_until="domcontentloaded")
+                    await click_when_ready(page, REPLY_BUTTON)
+
+                sel = await wait_any_visible(page, REPLY_TEXTBOX)
+                target = sel or (REPLY_TEXTBOX[0] if isinstance(REPLY_TEXTBOX, tuple) else REPLY_TEXTBOX)  # type: ignore[arg-type]
+                if self.cfg.humanize:
+                    await type_text(page.locator(target).first, text, self.cfg.type_min_ms, self.cfg.type_max_ms)
+                else:
+                    await page.locator(target).first.fill(text)
+                await click_any_when_ready(page, REPLY_SUBMIT)
+                await sleep(1.0)
+                confirmed = await wait_toast(page, TOAST_REGION, timeout_ms=self.cfg.toast_timeout_ms) if 'TOAST_REGION' in globals() else False
+                if self.cfg.confirm_content_enabled and not confirmed:
+                    if self.cfg.handle:
+                        confirmed = await wait_reply_by_author(page, self.cfg.handle, text, timeout_ms=self.cfg.content_confirm_timeout_ms)
+                    if not confirmed:
+                        confirmed = await wait_text_in(page, TWEET_TEXT_SELECTORS, text, timeout_ms=self.cfg.content_confirm_timeout_ms)
+                status_id = None
+                if self.cfg.handle and confirmed:
+                    status_id = await extract_reply_status_id_from_thread(page, self.cfg.handle, text, timeout_ms=self.cfg.content_confirm_timeout_ms)
+                    if not status_id:
+                        status_id = await extract_reply_status_id_from_with_replies(page, self.cfg.base_url, self.cfg.handle, text, max_articles=25, timeout_ms=self.cfg.content_confirm_timeout_ms)
+                success = True
+                if self.cfg.confirm_reply_strict and not confirmed:
+                    success = False
+                record_action_result(
+                    "reply",
+                    success,
+                    self.cfg,
+                    {"url": url, "len": len(text), "confirm": ("toast" if confirmed else "unknown"), **({"status_id": status_id} if status_id else {})},
+                    trace_path=str(b.trace_path) if b.trace_path else None,
+                    har_path=str(b.har_path) if b.har_path else None,
+                )
 
     @with_retries(3)
     async def like(self, url: str) -> None:

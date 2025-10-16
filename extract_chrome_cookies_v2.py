@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from Crypto.Cipher import AES
 from Crypto.Protocol.KDF import PBKDF2
 
-CHROME_PROFILE = "Default"  # Changed from Profile 2 to Default (most recent activity)
+CHROME_PROFILE = os.getenv("CHROME_PROFILE", "Default")
 CHROME_PATH = Path.home() / "Library/Application Support/Google/Chrome"
 PROFILE_PATH = CHROME_PATH / CHROME_PROFILE
 COOKIES_DB = PROFILE_PATH / "Cookies"
