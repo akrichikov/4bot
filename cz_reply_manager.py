@@ -33,7 +33,8 @@ class CZReplyManager:
         self.cfg = Config.from_env()
         # headless + persistent (so storageState is used); prefer config/profiles/<name>
         self.cfg.headless = True
-        self.cfg.persist_session = True
+        # In-memory (ephemeral) headless tabs per reply
+        self.cfg.persist_session = False
         cfg_storage = Path("config/profiles") / profile / "storageState.json"
         if cfg_storage.exists():
             self.cfg.storage_state = cfg_storage
@@ -71,4 +72,3 @@ class CZReplyManager:
 if __name__ == "__main__":
     mgr = CZReplyManager(profile=os.getenv('PROFILE', '4botbsc'))
     mgr.start()
-
