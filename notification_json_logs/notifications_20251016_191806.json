@@ -1,0 +1,283 @@
+{
+  "metadata": {
+    "timestamp": "2025-10-16T19:18:41.738377",
+    "total_notifications": 15,
+    "stats": {
+      "total": 15,
+      "likes": 0,
+      "retweets": 0,
+      "replies": 0,
+      "mentions": 0,
+      "follows": 0,
+      "quotes": 0,
+      "unknown": 8,
+      "follow": 7
+    },
+    "account": "4botbsc@gmail.com"
+  },
+  "notifications": [
+    {
+      "notification_id": "notif_rwtik5_mgt9o6kt",
+      "type": "follow",
+      "timestamp_captured": "2025-10-16T10:18:11.405Z",
+      "timestamp_event": "2025-10-16T06:37:56.436Z",
+      "actor": {
+        "handle": "machsupra",
+        "display_name": "",
+        "avatar_url": "https://pbs.twimg.com/profile_images/1873281172471791616/BTYyFiCj_normal.jpg",
+        "verified": false
+      },
+      "target_post": null,
+      "new_content": null,
+      "metrics": null,
+      "mentioned_users": [],
+      "raw_text": "Mach followed you3h"
+    },
+    {
+      "notification_id": "notif_rwtik5_mgt9o6ku",
+      "type": "follow",
+      "timestamp_captured": "2025-10-16T10:18:11.406Z",
+      "timestamp_event": "2025-10-16T06:37:56.436Z",
+      "actor": {
+        "handle": "machsupra",
+        "display_name": "",
+        "avatar_url": "https://pbs.twimg.com/profile_images/1873281172471791616/BTYyFiCj_normal.jpg",
+        "verified": false
+      },
+      "target_post": null,
+      "new_content": null,
+      "metrics": null,
+      "mentioned_users": [],
+      "raw_text": "Mach followed you3h"
+    },
+    {
+      "notification_id": "notif_jux17x_mgt9o6ku",
+      "type": "unknown",
+      "timestamp_captured": "2025-10-16T10:18:11.406Z",
+      "timestamp_event": "2025-10-16T05:35:24.682Z",
+      "actor": {
+        "handle": "unknown",
+        "display_name": "",
+        "avatar_url": "",
+        "verified": false
+      },
+      "target_post": null,
+      "new_content": null,
+      "metrics": null,
+      "mentioned_users": [
+        "@4botbsc"
+      ],
+      "raw_text": "There was a login to your account @4botbsc from a new device on Oct 15, 2025. Review it now.4h"
+    },
+    {
+      "notification_id": "notif_5ynfk0_mgt9o6ku",
+      "type": "follow",
+      "timestamp_captured": "2025-10-16T10:18:11.406Z",
+      "timestamp_event": "2025-10-15T17:07:58.341Z",
+      "actor": {
+        "handle": "alayah1653",
+        "display_name": "",
+        "avatar_url": "https://pbs.twimg.com/profile_images/1908304653395394560/Lamqtw9i_normal.jpg",
+        "verified": false
+      },
+      "target_post": null,
+      "new_content": null,
+      "metrics": null,
+      "mentioned_users": [],
+      "raw_text": "Alayah and 90 others followed you17h"
+    },
+    {
+      "notification_id": "notif_nh62hd_mgt9o6ku",
+      "type": "unknown",
+      "timestamp_captured": "2025-10-16T10:18:11.406Z",
+      "timestamp_event": "2025-10-15T15:50:09.343Z",
+      "actor": {
+        "handle": "unknown",
+        "display_name": "",
+        "avatar_url": "",
+        "verified": false
+      },
+      "target_post": null,
+      "new_content": null,
+      "metrics": null,
+      "mentioned_users": [],
+      "raw_text": "We’re reviewing your account now.Your account will be reviewed for a blue checkmark soon.18h"
+    },
+    {
+      "notification_id": "notif_nnkd8q_mgt9o6ku",
+      "type": "unknown",
+      "timestamp_captured": "2025-10-16T10:18:11.406Z",
+      "timestamp_event": "2025-10-15T13:07:57.912Z",
+      "actor": {
+        "handle": "unknown",
+        "display_name": "",
+        "avatar_url": "",
+        "verified": false
+      },
+      "target_post": null,
+      "new_content": null,
+      "metrics": null,
+      "mentioned_users": [
+        "@4botbsc"
+      ],
+      "raw_text": "There was a login to your account @4botbsc from a new device on Oct 15, 2025. Review it now.21h"
+    },
+    {
+      "notification_id": "notif_lcvch0_mgt9o6ku",
+      "type": "follow",
+      "timestamp_captured": "2025-10-16T10:18:11.406Z",
+      "timestamp_event": "2025-10-15T09:16:28.036Z",
+      "actor": {
+        "handle": "0xJbias",
+        "display_name": "",
+        "avatar_url": "https://pbs.twimg.com/profile_images/1933179173365026816/cxYDRyqW_normal.jpg",
+        "verified": false
+      },
+      "target_post": null,
+      "new_content": null,
+      "metrics": null,
+      "mentioned_users": [],
+      "raw_text": "J Bias followed youOct 15"
+    },
+    {
+      "notification_id": "notif_0_mgt9o6ku",
+      "type": "unknown",
+      "timestamp_captured": "2025-10-16T10:18:11.406Z",
+      "timestamp_event": null,
+      "actor": {
+        "handle": "unknown",
+        "display_name": "",
+        "avatar_url": "",
+        "verified": false
+      },
+      "target_post": null,
+      "new_content": null,
+      "metrics": null,
+      "mentioned_users": [],
+      "raw_text": ""
+    },
+    {
+      "notification_id": "notif_rwtik5_mgt9oojk",
+      "type": "follow",
+      "timestamp_captured": "2025-10-16T10:18:34.688Z",
+      "timestamp_event": "2025-10-16T06:37:56.436Z",
+      "actor": {
+        "handle": "machsupra",
+        "display_name": "",
+        "avatar_url": "https://pbs.twimg.com/profile_images/1873281172471791616/BTYyFiCj_normal.jpg",
+        "verified": false
+      },
+      "target_post": null,
+      "new_content": null,
+      "metrics": null,
+      "mentioned_users": [],
+      "raw_text": "Mach followed you3h"
+    },
+    {
+      "notification_id": "notif_jux17x_mgt9oojk",
+      "type": "unknown",
+      "timestamp_captured": "2025-10-16T10:18:34.688Z",
+      "timestamp_event": "2025-10-16T05:35:24.682Z",
+      "actor": {
+        "handle": "unknown",
+        "display_name": "",
+        "avatar_url": "",
+        "verified": false
+      },
+      "target_post": null,
+      "new_content": null,
+      "metrics": null,
+      "mentioned_users": [
+        "@4botbsc"
+      ],
+      "raw_text": "There was a login to your account @4botbsc from a new device on Oct 15, 2025. Review it now.4h"
+    },
+    {
+      "notification_id": "notif_5ynfk0_mgt9oojk",
+      "type": "follow",
+      "timestamp_captured": "2025-10-16T10:18:34.688Z",
+      "timestamp_event": "2025-10-15T17:07:58.341Z",
+      "actor": {
+        "handle": "alayah1653",
+        "display_name": "",
+        "avatar_url": "https://pbs.twimg.com/profile_images/1908304653395394560/Lamqtw9i_normal.jpg",
+        "verified": false
+      },
+      "target_post": null,
+      "new_content": null,
+      "metrics": null,
+      "mentioned_users": [],
+      "raw_text": "Alayah and 90 others followed you17h"
+    },
+    {
+      "notification_id": "notif_nh62hd_mgt9oojk",
+      "type": "unknown",
+      "timestamp_captured": "2025-10-16T10:18:34.688Z",
+      "timestamp_event": "2025-10-15T15:50:09.343Z",
+      "actor": {
+        "handle": "unknown",
+        "display_name": "",
+        "avatar_url": "",
+        "verified": false
+      },
+      "target_post": null,
+      "new_content": null,
+      "metrics": null,
+      "mentioned_users": [],
+      "raw_text": "We’re reviewing your account now.Your account will be reviewed for a blue checkmark soon.18h"
+    },
+    {
+      "notification_id": "notif_nnkd8q_mgt9oojk",
+      "type": "unknown",
+      "timestamp_captured": "2025-10-16T10:18:34.688Z",
+      "timestamp_event": "2025-10-15T13:07:57.912Z",
+      "actor": {
+        "handle": "unknown",
+        "display_name": "",
+        "avatar_url": "",
+        "verified": false
+      },
+      "target_post": null,
+      "new_content": null,
+      "metrics": null,
+      "mentioned_users": [
+        "@4botbsc"
+      ],
+      "raw_text": "There was a login to your account @4botbsc from a new device on Oct 15, 2025. Review it now.21h"
+    },
+    {
+      "notification_id": "notif_lcvch0_mgt9oojk",
+      "type": "follow",
+      "timestamp_captured": "2025-10-16T10:18:34.688Z",
+      "timestamp_event": "2025-10-15T09:16:28.036Z",
+      "actor": {
+        "handle": "0xJbias",
+        "display_name": "",
+        "avatar_url": "https://pbs.twimg.com/profile_images/1933179173365026816/cxYDRyqW_normal.jpg",
+        "verified": false
+      },
+      "target_post": null,
+      "new_content": null,
+      "metrics": null,
+      "mentioned_users": [],
+      "raw_text": "J Bias followed youOct 15"
+    },
+    {
+      "notification_id": "notif_0_mgt9oojk",
+      "type": "unknown",
+      "timestamp_captured": "2025-10-16T10:18:34.688Z",
+      "timestamp_event": null,
+      "actor": {
+        "handle": "unknown",
+        "display_name": "",
+        "avatar_url": "",
+        "verified": false
+      },
+      "target_post": null,
+      "new_content": null,
+      "metrics": null,
+      "mentioned_users": [],
+      "raw_text": ""
+    }
+  ]
+}

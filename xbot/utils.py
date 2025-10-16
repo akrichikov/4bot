@@ -15,21 +15,30 @@ async def jitter(min_ms: int, max_ms: int) -> None:
     await sleep(ms / 1000.0)
 
 
-def with_retries(attempts: int) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
+def with_retries(default_attempts: int) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
     def decorator(fn: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
         async def wrapper(*args, **kwargs) -> T:
+            dyn_attempts = default_attempts
+            try:
+                self = args[0]
+                dyn_attempts = int(getattr(getattr(self, 'cfg', None), 'action_retries', default_attempts) or default_attempts)
+            except Exception:
+                pass
             async for attempt in AsyncRetrying(
-                stop=stop_after_attempt(max(1, attempts)),
+                stop=stop_after_attempt(max(1, dyn_attempts)),
                 retry=retry_if_exception_type(Exception),
                 wait=wait_fixed(0.5),
                 reraise=True,
             ):
                 with attempt:
                     return await fn(*args, **kwargs)
-            # unreachable, but keep type checker happy
             return await fn(*args, **kwargs)
 
         return wrapper
 
     return decorator
 
+
+def normalize_text(s: str) -> str:
+    """Normalize text for loose matching: lower, collapse whitespace."""
+    return " ".join(s.lower().split())

@@ -12,13 +12,16 @@ dependencies = [
   "typer>=0.12",
   "rich>=13",
   "tenacity>=8",
-  "pyotp>=2.9"
+  "pyotp>=2.9",
+  "aiohttp>=3.9",
+  "pycryptodome>=3.18"
 ]
 
 [project.optional-dependencies]
 dev = [
   "ruff>=0.5",
   "black>=24",
+  "pytest-asyncio>=0.23",
 ]
 
 [project.scripts]
@@ -29,6 +32,9 @@ addopts = "-q"
 markers = [
   "live: marks tests that hit real X.com (set X_USER/X_PASSWORD to run)"
 ]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
 
 [tool.ruff]
 line-length = 100
@@ -42,3 +48,20 @@ ignore = []
 [tool.black]
 line-length = 100
 target-version = ["py311"]
+
+[build-system]
+requires = ["setuptools>=62", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["xbot*"]
+exclude = [
+  "tests*",
+  "Docs*",
+  "auth_data*",
+  "chrome_profiles*",
+  "playbooks*",
+  "schedules*",
+  "config*",
+]

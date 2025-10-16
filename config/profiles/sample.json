@@ -1,0 +1,8 @@
+{
+  "proxy_url": "http://user:pass@host:3128",
+  "locale": "en-GB",
+  "timezone_id": "Europe/London",
+  "viewport_width": 1366,
+  "viewport_height": 900
+}
+

@@ -23,6 +23,7 @@ class Config(BaseModel):
     username: Optional[str] = Field(default=None)
     password: Optional[str] = Field(default=None)
     email: Optional[str] = Field(default=None)
+    handle: Optional[str] = Field(default=None)
     twofa: Optional[str] = Field(default=None)
     totp_secret: Optional[str] = Field(default=None)
 
@@ -50,6 +51,10 @@ class Config(BaseModel):
     media_allow_images: bool = Field(default=True)
     media_allow_video: bool = Field(default=True)
     media_allow_gif: bool = Field(default=True)
+    media_preview_enforce: bool = Field(default=False)
+    media_preview_warn_only: bool = Field(default=True)
+    media_cap_enforce: bool = Field(default=False)
+    media_cap_warn_only: bool = Field(default=True)
 
     # Environment / stealth
     locale: str = Field(default="en-US")
@@ -63,6 +68,33 @@ class Config(BaseModel):
 
     # Profiles
     profile_name: str = Field(default="default")
+
+    # Confirmations and reporting
+    confirm_content_enabled: bool = Field(default=True)
+    report_html_enabled: bool = Field(default=False)
+    report_html_actions: Optional[str] = Field(default=None)
+    report_html_daily_enabled: bool = Field(default=False)
+    report_html_limit: int = Field(default=200)
+    report_html_days: int = Field(default=3)
+    report_html_outdir: Path = Field(default=Path("artifacts/results"))
+    confirm_post_profile_nav: bool = Field(default=False)
+    confirm_post_strict: bool = Field(default=False)
+    confirm_reply_strict: bool = Field(default=False)
+
+    # VTerm integration
+    vterm_mode: str = Field(default="unix")  # 'unix' or 'http'
+    vterm_socket: Path = Field(default=Path(".x-vterm.sock"))
+    vterm_http_base: Optional[str] = Field(default=None)  # e.g., http://127.0.0.1:9876
+    vterm_token: Optional[str] = Field(default=None)
+
+    # Timeouts and retries (ms / counts)
+    wait_timeout_ms: int = Field(default=5000)
+    long_wait_timeout_ms: int = Field(default=20000)
+    toast_timeout_ms: int = Field(default=4000)
+    content_confirm_timeout_ms: int = Field(default=5000)
+    action_retries: int = Field(default=3)
+    action_retry_jitter_min_ms: int = Field(default=200)
+    action_retry_jitter_max_ms: int = Field(default=600)
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -80,6 +112,7 @@ class Config(BaseModel):
             username=getenv("X_USER") or getenv("USERNAME"),
             password=getenv("X_PASSWORD") or getenv("PASSWORD"),
             email=getenv("X_EMAIL") or getenv("EMAIL"),
+            handle=(getenv("X_HANDLE") or None),
             twofa=getenv("X_2FA_CODE") or getenv("TWOFA"),
             totp_secret=getenv("X_TOTP_SECRET") or getenv("TOTP_SECRET"),
             retry_attempts=int(getenv("RETRY_ATTEMPTS", "3")),
@@ -100,6 +133,10 @@ class Config(BaseModel):
             media_allow_images=_parse_bool(getenv("MEDIA_ALLOW_IMAGES", "true")),
             media_allow_video=_parse_bool(getenv("MEDIA_ALLOW_VIDEO", "true")),
             media_allow_gif=_parse_bool(getenv("MEDIA_ALLOW_GIF", "true")),
+            media_preview_enforce=_parse_bool(getenv("MEDIA_PREVIEW_ENFORCE", "false")),
+            media_preview_warn_only=_parse_bool(getenv("MEDIA_PREVIEW_WARN_ONLY", "true")),
+            media_cap_enforce=_parse_bool(getenv("MEDIA_CAP_ENFORCE", "false")),
+            media_cap_warn_only=_parse_bool(getenv("MEDIA_CAP_WARN_ONLY", "true")),
             locale=getenv("LOCALE", "en-US"),
             timezone_id=getenv("TIMEZONE_ID", "America/Los_Angeles"),
             user_agent=(getenv("USER_AGENT") or None),
@@ -109,7 +146,40 @@ class Config(BaseModel):
             geolocation_lon=(float(getenv("GEO_LON")) if getenv("GEO_LON") else None),
             grant_geolocation=_parse_bool(getenv("GRANT_GEOLOCATION", "false")),
             profile_name=getenv("PROFILE", getenv("X_PROFILE", "default")) or "default",
+            confirm_content_enabled=_parse_bool(getenv("CONFIRM_CONTENT_ENABLED", "true")),
+            report_html_enabled=_parse_bool(getenv("REPORT_HTML_ENABLED", "false")),
+            report_html_actions=(getenv("REPORT_HTML_ACTIONS") or None),
+            report_html_daily_enabled=_parse_bool(getenv("REPORT_HTML_DAILY_ENABLED", "false")),
+            report_html_limit=int(getenv("REPORT_HTML_LIMIT", "200")),
+            report_html_days=int(getenv("REPORT_HTML_DAYS", "3")),
+            report_html_outdir=Path(getenv("REPORT_HTML_OUTDIR", "artifacts/results")),
+            confirm_post_profile_nav=_parse_bool(getenv("CONFIRM_POST_PROFILE_NAV", "false")),
+            confirm_post_strict=_parse_bool(getenv("CONFIRM_POST_STRICT", "false")),
+            confirm_reply_strict=_parse_bool(getenv("CONFIRM_REPLY_STRICT", "false")),
+            wait_timeout_ms=int(getenv("WAIT_TIMEOUT_MS", "5000")),
+            long_wait_timeout_ms=int(getenv("LONG_WAIT_TIMEOUT_MS", "20000")),
+            toast_timeout_ms=int(getenv("TOAST_TIMEOUT_MS", "4000")),
+            content_confirm_timeout_ms=int(getenv("CONTENT_CONFIRM_TIMEOUT_MS", "5000")),
+            action_retries=int(getenv("ACTION_RETRIES", "3")),
+            action_retry_jitter_min_ms=int(getenv("ACTION_RETRY_JITTER_MIN_MS", "200")),
+            action_retry_jitter_max_ms=int(getenv("ACTION_RETRY_JITTER_MAX_MS", "600")),
+            vterm_mode=(getenv("VTERM_MODE", "unix").lower()),
+            vterm_socket=Path(getenv("VTERM_SOCKET", ".x-vterm.sock")),
+            vterm_http_base=(getenv("VTERM_HTTP_BASE") or None),
+            vterm_token=(getenv("VTERM_TOKEN") or None),
         )
+
+        # Derive handle if not explicitly provided
+        if cfg.handle is None and cfg.username:
+            u = cfg.username.strip()
+            if u.startswith("@"):
+                cfg.handle = u[1:]
+            elif "@" in u and "." in u:
+                # likely an email; leave handle unset
+                pass
+            else:
+                cfg.handle = u
+        return cfg
 
         # Apply per-profile overrides from config/profiles/<profile>.json if present
         overlay_path = Path("config/profiles") / f"{cfg.profile_name}.json"

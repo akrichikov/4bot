@@ -3,7 +3,7 @@ from __future__ import annotations
 import csv
 import json
 from pathlib import Path
-from typing import Any, Dict, Iterable
+from typing import Any, Dict, Iterable, List
 
 
 def iter_results(index_path: Path) -> Iterable[Dict[str, Any]]:
@@ -71,3 +71,51 @@ def export_csv(index_path: Path, out_path: Path) -> None:
                 rec.get("har", ""),
             ])
 
+
+def check_threshold(index_path: Path, actions: Iterable[str] | None, window: int, min_rate: float) -> bool:
+    recs = list(iter_results(index_path))
+    if not recs:
+        return False
+    if window > 0:
+        recs = recs[-window:]
+    if actions:
+        want = set(a.lower() for a in actions)
+        recs = [r for r in recs if str(r.get("action", "")).lower() in want]
+    if not recs:
+        return False
+    total = len(recs)
+    ok = sum(1 for r in recs if r.get("success"))
+    rate = ok / total
+    return rate >= min_rate
+
+
+def consolidate(index_path: Path, actions: Iterable[str] | None, window: int = 200, last_failures: int = 10) -> Dict[str, Any]:
+    recs = list(iter_results(index_path))
+    if window > 0:
+        recs = recs[-window:]
+    if actions:
+        want = set(a.lower() for a in actions)
+        recs = [r for r in recs if str(r.get("action", "")).lower() in want]
+    total = len(recs)
+    ok = sum(1 for r in recs if r.get("success"))
+    by_action: Dict[str, Dict[str, Any]] = {}
+    failures: List[Dict[str, Any]] = []
+    for r in reversed(recs):
+        a = str(r.get("action", ""))
+        b = by_action.setdefault(a, {"count": 0, "ok": 0})
+        b["count"] += 1
+        if r.get("success"):
+            b["ok"] += 1
+        else:
+            if len(failures) < last_failures:
+                failures.append({"ts": r.get("ts"), "action": a, "meta": r.get("meta", {}), "artifacts": r.get("artifacts", {})})
+    for a, v in by_action.items():
+        c = v.get("count", 0)
+        v["rate"] = (v.get("ok", 0) / c if c else 0.0)
+    return {
+        "total": total,
+        "success": ok,
+        "rate": (ok / total if total else 0.0),
+        "by_action": by_action,
+        "failures": failures,
+    }

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterable, List, Tuple
+from typing import Iterable, List, Tuple, Dict, Any
+import json
 
 
 def profile_paths(profile: str) -> Tuple[Path, Path]:
@@ -44,3 +45,37 @@ def clear_state(profile: str) -> bool:
         return True
     return False
 
+
+def overlay_path(profile: str) -> Path:
+    return Path("config/profiles") / f"{profile}.json"
+
+
+def read_overlay(profile: str) -> Dict[str, Any]:
+    p = overlay_path(profile)
+    if p.exists():
+        try:
+            return json.loads(p.read_text())
+        except Exception:
+            return {}
+    return {}
+
+
+def write_overlay(profile: str, data: Dict[str, Any]) -> None:
+    p = overlay_path(profile)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+
+
+def set_overlay_value(profile: str, key: str, value: Any) -> None:
+    data = read_overlay(profile)
+    data[key] = value
+    write_overlay(profile, data)
+
+
+def del_overlay_key(profile: str, key: str) -> bool:
+    data = read_overlay(profile)
+    if key in data:
+        del data[key]
+        write_overlay(profile, data)
+        return True
+    return False

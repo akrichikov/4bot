@@ -1,0 +1,76 @@
+{
+  "subscriptions": {
+    "crypto": {
+      "name": "Crypto Monitoring",
+      "type": "keywords",
+      "keywords": [
+        "bitcoin",
+        "ethereum",
+        "BTC",
+        "ETH",
+        "crypto",
+        "blockchain",
+        "DeFi",
+        "NFT",
+        "Web3"
+      ],
+      "active": true
+    },
+    "stocks": {
+      "name": "Stock Market",
+      "type": "regex",
+      "patterns": [
+        "\\$[A-Z]{1,5}\\b",
+        "\\bSPY\\b",
+        "\\bQQQ\\b",
+        "\\bTSLA\\b",
+        "\\bAAPL\\b",
+        "\\bNVDA\\b"
+      ],
+      "active": true
+    },
+    "influencers": {
+      "name": "Key Influencers",
+      "type": "authors",
+      "authors": [
+        "elonmusk",
+        "cathiedwood",
+        "jimcramer",
+        "PeterSchiff",
+        "saylor"
+      ],
+      "active": true
+    },
+    "trending": {
+      "name": "Trending Topics",
+      "type": "mixed",
+      "keywords": ["breaking", "BREAKING", "urgent", "alert"],
+      "min_likes": 100,
+      "min_retweets": 50,
+      "active": true
+    }
+  },
+  "filters": {
+    "min_likes": 0,
+    "min_retweets": 0,
+    "min_replies": 0,
+    "require_media": false,
+    "exclude_retweets": false,
+    "exclude_replies": false,
+    "verified_only": false
+  },
+  "notifications": {
+    "desktop_notifications": true,
+    "console_output": true,
+    "webhook_url": null,
+    "log_file": "notifications.jsonl",
+    "buffer_size": 100,
+    "aggregation_interval": 60
+  },
+  "browser": {
+    "headless": false,
+    "scroll_interval": 30,
+    "scroll_amount": 500,
+    "auto_refresh_interval": 300
+  }
+}

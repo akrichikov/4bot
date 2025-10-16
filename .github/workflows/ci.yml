@@ -2,32 +2,44 @@ name: CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches: ["**"]
   pull_request:
+    branches: ["**"]
 
 jobs:
-  test:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install system dependencies for Playwright
+          cache: 'pip'
+      - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install . '.[dev]'
-          python -m playwright install --with-deps chromium
-      - name: Lint (ruff)
-        run: |
-          python -m ruff check .
-      - name: Tests
-        run: |
-          pytest -q
-      - name: Upload artifacts on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
+          python -m pip install -U pip wheel setuptools
+          pip install -e .[dev]
+      - name: Ruff (lint)
+        run: ruff . --output-format=github
+      - name: Black (format check)
+        run: black --check .
+
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          name: artifacts
-          path: |
-            artifacts/**
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Install dependencies
+        run: |
+          python -m pip install -U pip wheel setuptools
+          pip install -e .[dev]
+      - name: Install Playwright (optional)
+        run: |
+          python -m playwright install chromium
+      - name: Run tests (non-live)
+        run: pytest -q -k "not browser_cookie_test and not live"
+

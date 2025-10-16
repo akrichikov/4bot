@@ -1,0 +1,134 @@
+{
+  "Default": {
+    "profile_name": "Default",
+    "profile_path": "/Users/doctordre/Library/Application Support/Google/Chrome/Default",
+    "email": "akrichikov@gmail.com",
+    "x_handle": "akrichikov",
+    "x_user_id": null,
+    "is_production": false,
+    "description": "Test account for monitoring development",
+    "cookies_extracted": true,
+    "last_updated": null
+  },
+  "Profile 1": {
+    "profile_name": "Profile 1",
+    "profile_path": "/Users/doctordre/Library/Application Support/Google/Chrome/Profile 1",
+    "email": null,
+    "x_handle": null,
+    "x_user_id": null,
+    "is_production": false,
+    "description": null,
+    "cookies_extracted": false,
+    "last_updated": null
+  },
+  "Profile 2": {
+    "profile_name": "Profile 2",
+    "profile_path": "/Users/doctordre/Library/Application Support/Google/Chrome/Profile 2",
+    "email": "team@hyper-data.ai",
+    "x_handle": null,
+    "x_user_id": null,
+    "is_production": false,
+    "description": null,
+    "cookies_extracted": false,
+    "last_updated": null
+  },
+  "Profile 3": {
+    "profile_name": "Profile 3",
+    "profile_path": "/Users/doctordre/Library/Application Support/Google/Chrome/Profile 3",
+    "email": "Your Chrome",
+    "x_handle": null,
+    "x_user_id": null,
+    "is_production": false,
+    "description": null,
+    "cookies_extracted": false,
+    "last_updated": null
+  },
+  "Profile 4": {
+    "profile_name": "Profile 4",
+    "profile_path": "/Users/doctordre/Library/Application Support/Google/Chrome/Profile 4",
+    "email": "team@hyperagentusa.com",
+    "x_handle": null,
+    "x_user_id": null,
+    "is_production": false,
+    "description": null,
+    "cookies_extracted": false,
+    "last_updated": null
+  },
+  "Profile 5": {
+    "profile_name": "Profile 5",
+    "profile_path": "/Users/doctordre/Library/Application Support/Google/Chrome/Profile 5",
+    "email": "heydoctordre@gmail.com",
+    "x_handle": null,
+    "x_user_id": null,
+    "is_production": false,
+    "description": null,
+    "cookies_extracted": false,
+    "last_updated": null
+  },
+  "Profile 7": {
+    "profile_name": "Profile 7",
+    "profile_path": "/Users/doctordre/Library/Application Support/Google/Chrome/Profile 7",
+    "email": "andre@winnock.org",
+    "x_handle": null,
+    "x_user_id": null,
+    "is_production": false,
+    "description": null,
+    "cookies_extracted": false,
+    "last_updated": null
+  },
+  "Profile 8": {
+    "profile_name": "Profile 8",
+    "profile_path": "/Users/doctordre/Library/Application Support/Google/Chrome/Profile 8",
+    "email": "andre@advisium.ai",
+    "x_handle": null,
+    "x_user_id": null,
+    "is_production": false,
+    "description": null,
+    "cookies_extracted": false,
+    "last_updated": null
+  },
+  "Profile 9": {
+    "profile_name": "Profile 9",
+    "profile_path": "/Users/doctordre/Library/Application Support/Google/Chrome/Profile 9",
+    "email": "andre@hyperstorm.ai",
+    "x_handle": null,
+    "x_user_id": null,
+    "is_production": false,
+    "description": null,
+    "cookies_extracted": false,
+    "last_updated": null
+  },
+  "Profile 11": {
+    "profile_name": "Profile 11",
+    "profile_path": "/Users/doctordre/Library/Application Support/Google/Chrome/Profile 11",
+    "email": "winnockabel@gmail.com",
+    "x_handle": null,
+    "x_user_id": null,
+    "is_production": false,
+    "description": null,
+    "cookies_extracted": false,
+    "last_updated": null
+  },
+  "Profile 12": {
+    "profile_name": "Profile 12",
+    "profile_path": "/Users/doctordre/Library/Application Support/Google/Chrome/Profile 12",
+    "email": "blondydog@gmail.com",
+    "x_handle": null,
+    "x_user_id": null,
+    "is_production": false,
+    "description": null,
+    "cookies_extracted": false,
+    "last_updated": null
+  },
+  "Profile 13": {
+    "profile_name": "Profile 13",
+    "profile_path": "/Users/doctordre/Library/Application Support/Google/Chrome/Profile 13",
+    "email": "4botbsc@gmail.com",
+    "x_handle": "4botbsc",
+    "x_user_id": null,
+    "is_production": true,
+    "description": "Production X account - DO NOT USE FOR TESTING",
+    "cookies_extracted": false,
+    "last_updated": null
+  }
+}
