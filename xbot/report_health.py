@@ -4,7 +4,7 @@ import html
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Iterable
 
 
 def _badge(ok: bool) -> str:
@@ -74,3 +74,51 @@ def write_system_health_html(report: Dict[str, Any], out_path: Path) -> Path:
     out_path.write_text("\n".join(parts), encoding="utf-8")
     return out_path
 
+
+def write_status_index(outdir: Path) -> Path:
+    outdir = Path(outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+    idx = outdir / "index.html"
+
+    # Discover known artifacts
+    health_html = outdir / "system_health.html"
+    health_json = outdir / "system_health.json"
+
+    # Prioritized links
+    links: list[tuple[str, Path]] = []
+    if health_html.exists():
+        links.append(("System Health (HTML)", health_html))
+    if health_json.exists():
+        links.append(("System Health (JSON)", health_json))
+
+    # Enumerate other HTML/JSON artifacts in the same directory (non-recursive)
+    others: list[Path] = []
+    for p in sorted(outdir.glob("*.html")):
+        if p.name not in {"index.html", "system_health.html"}:
+            others.append(p)
+    for p in sorted(outdir.glob("*.json")):
+        if p.name not in {"system_health.json"}:
+            others.append(p)
+
+    parts: list[str] = []
+    parts.append("<html><head><meta charset='utf-8'><title>Status Index</title>")
+    parts.append("<style>body{font-family:system-ui,Segoe UI,Arial,sans-serif;padding:16px} li{margin:6px 0}</style>")
+    parts.append("</head><body>")
+    parts.append("<h1>Status Index</h1>")
+    parts.append("<ul>")
+    if links:
+        for label, p in links:
+            rel = p.name
+            parts.append(f"<li><a href='{html.escape(rel)}'>{html.escape(label)}</a></li>")
+    # add a separator between prioritized health links and others
+    if links and others:
+        parts.append("</ul><h2>Other Artifacts</h2><ul>")
+    for p in others:
+        parts.append(f"<li><a href='{html.escape(p.name)}'>{html.escape(p.name)}</a></li>")
+    if not links and not others:
+        parts.append("<li><em>No known status artifacts yet.</em></li>")
+    parts.append("</ul>")
+    parts.append("</body></html>")
+
+    idx.write_text("\n".join(parts), encoding="utf-8")
+    return idx

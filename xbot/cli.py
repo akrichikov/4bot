@@ -22,7 +22,7 @@ from .results import record_action_result
 from .scheduler import run_schedule
 from .report import summary as report_summary, export_csv as report_export_csv, check_threshold as report_check_threshold
 from .report_html import html_report as report_html
-from .report_health import write_system_health_html
+from .report_health import write_system_health_html, write_status_index
 from .profiles import profile_paths, list_profiles, ensure_profile_dirs, clear_state, set_overlay_value, del_overlay_key, read_overlay
 from .vterm import VTerm
 from .vtermd import VTermDaemon, client_request, DEFAULT_SOCKET
@@ -1016,6 +1016,14 @@ def health_system_html_cmd(
         print(f"[green]Wrote {out_json}[/green]")
     path = write_system_health_html(report, out_html)
     print(f"[green]Wrote {path}[/green]")
+
+
+@health_app.command("status-index")
+def health_status_index_cmd(
+    out_dir: Path = typer.Option(Path("Docs/status"), help="Directory that will contain index.html"),
+) -> None:
+    idx = write_status_index(out_dir)
+    print(f"[green]Wrote {idx}[/green]")
 
 
 @health_app.command("snapshot")

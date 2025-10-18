@@ -1,7 +1,7 @@
 PY = .venv/bin/python
 PIP = .venv/bin/pip
 
-.PHONY: venv install dev lint format test health cz-proxy cz-daemon notifications start-all stop-all
+.PHONY: venv install dev lint format test health cz-proxy cz-daemon notifications start-all stop-all hygiene
 
 venv:
 	python -m venv .venv
@@ -23,6 +23,9 @@ format:
 
 test:
 	.venv/bin/pytest -q
+
+hygiene:
+	.venv/bin/pytest -q tests/test_repo_hygiene.py tests/test_wrapper_hygiene.py
 
 health:
 	$(PY) -m xbot.cli health selectors --tweet-url $$HEALTH_TWEET_URL --profile $$PROFILE || true
@@ -47,3 +50,10 @@ system-health:
 
 system-health-html:
 	$(PY) -m xbot.cli health system-html --out-html Docs/status/system_health.html --out-json Docs/status/system_health.json || true
+
+status-index:
+	$(PY) -m xbot.cli health status-index || true
+
+site:
+	$(MAKE) system-health-html
+	$(MAKE) status-index
