@@ -75,7 +75,7 @@ class CZReplyEngine:
 
     def _load_cz_prompt(self) -> str:
         """Load CZ persona prompt"""
-        prompt_path = Path("/Users/doctordre/projects/4bot/CLAUDE.md")
+        prompt_path = Path("CLAUDE.md")
         if prompt_path.exists():
             with open(prompt_path, 'r', encoding='utf-8') as f:
                 return f.read()

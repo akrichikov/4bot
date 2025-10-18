@@ -79,3 +79,74 @@ def del_overlay_key(profile: str, key: str) -> bool:
         write_overlay(profile, data)
         return True
     return False
+
+
+# New helper APIs for path and profile hygiene
+
+def storage_state_path(profile: str, prefer_config_dir: bool = True) -> Path:
+    """Return preferred storageState.json path for a profile.
+
+    Precedence (when prefer_config_dir=True):
+      - config/profiles/<profile>/storageState.json
+      - auth/<profile>/storageState.json (legacy)
+      - auth/storageState.json (default profile)
+    """
+    if not profile or profile == "default":
+        # default profile still can use config/profiles/default
+        if prefer_config_dir:
+            p = Path("config/profiles/default/storageState.json")
+            if p.exists():
+                return p
+        return Path("auth/storageState.json")
+    if prefer_config_dir:
+        p = Path("config/profiles") / profile / "storageState.json"
+        if p.exists():
+            return p
+    return Path("auth") / profile / "storageState.json"
+
+
+def user_data_dir(profile: str, prefer_dot: bool = True) -> Path:
+    """Return user data dir for Playwright persistent contexts.
+
+    For the default profile: `.x-user`
+    For named profile: `.x-user/<profile>`
+    """
+    if not profile or profile == "default":
+        return Path(".x-user")
+    return Path(".x-user") / profile
+
+
+def cookie_candidates(profile: str) -> List[Path]:
+    """Return likely cookie/storage files for best-effort cookie loading."""
+    return [
+        Path("auth_data/x_cookies.json"),
+        Path("chrome_profiles/cookies/default_cookies.json"),
+        Path("config/profiles") / profile / "storageState.json",
+        Path("auth") / profile / "storageState.json",
+    ]
+
+
+def validate(profile: str) -> Dict[str, Any]:
+    """Validate profile paths and provide quick hints/flags."""
+    s = storage_state_path(profile)
+    u = user_data_dir(profile)
+    exists = s.exists()
+    cookie_count = 0
+    err = None
+    if exists:
+        try:
+            data = json.loads(s.read_text())
+            cookie_count = len(data.get("cookies", []))
+        except Exception as e:
+            err = str(e)
+    present_candidates = [str(p) for p in cookie_candidates(profile) if p.exists()]
+    return {
+        "profile": profile or "default",
+        "storage_state": str(s),
+        "storage_exists": exists,
+        "cookie_count": cookie_count,
+        "user_data_dir": str(u),
+        "user_data_exists": u.exists(),
+        "cookie_candidates": present_candidates,
+        "error": err,
+    }

@@ -33,8 +33,9 @@ class TweetVerifier:
     def __init__(self):
         self.browser = None
         self.page = None
-        self.storage_state_path = "/Users/doctordre/projects/4bot/config/profiles/4botbsc/storageState.json"
-        self.tweet_file = "/Users/doctordre/projects/4bot/Docs/4Bot Tweets.md"
+        from xbot.profiles import storage_state_path
+        self.storage_state_path = str(storage_state_path("4botbsc"))
+        self.tweet_file = str(Path("Docs/4Bot Tweets.md"))
         self.available_tweets = []
         self.unavailable_tweets = []
 
@@ -196,7 +197,7 @@ class TweetVerifier:
 
         # Save results
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        report_file = f"/Users/doctordre/projects/4bot/Docs/status/tweet_availability_{timestamp}.json"
+        report_file = str(Path("Docs/status") / f"tweet_availability_{timestamp}.json")
 
         report_data = {
             'timestamp': datetime.now().isoformat(),
@@ -214,7 +215,7 @@ class TweetVerifier:
 
         # Save available tweets to new file
         if self.available_tweets:
-            available_file = "/Users/doctordre/projects/4bot/Docs/available_tweets.md"
+            available_file = str(Path("Docs/available_tweets.md"))
             with open(available_file, 'w') as f:
                 f.write("# Available FUD Tweets for CZ Replies\n\n")
                 f.write(f"Generated: {datetime.now().isoformat()}\n\n")

@@ -4,11 +4,12 @@ import asyncio
 from typing import Any as _Moved
 import json
 from pathlib import Path
+from xbot.profiles import storage_state_path
 from playwright.async_api import async_playwright
 
 async def test_auth():
     # Use the CORRECT path that xbot CLI uses
-    storage_path = Path("/Users/doctordre/projects/4bot/auth/4botbsc/storageState.json")
+    storage_path = storage_state_path("4botbsc", prefer_config_dir=False)
 
     if not storage_path.exists():
         print(f"❌ Storage file not found: {storage_path}")
@@ -76,7 +77,7 @@ async def test_auth():
                 pass
 
             # Take screenshot
-            screenshot_path = "/Users/doctordre/projects/4bot/Docs/status/diagnostics/auth_correct_path_test.png"
+            screenshot_path = str(Path("Docs/status/diagnostics/auth_correct_path_test.png"))
             await page.screenshot(path=screenshot_path, full_page=True)
             print(f"📸 Screenshot saved: {screenshot_path}")
 

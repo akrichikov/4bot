@@ -218,7 +218,7 @@ nohup python -u monitor_mentions.py > Docs/status/mention_monitor.log 2>&1 &
 
 ## 📞 Support Information
 
-**Repository:** /Users/doctordre/projects/4bot
+**Repository:** {Path('.').resolve()}
 **Documentation:** ./Docs/status/
 **Quick Reference:** ./Docs/status/mention_monitor_quickref.md
 

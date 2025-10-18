@@ -26,8 +26,9 @@ class TweetAccessDiagnostic:
     def __init__(self):
         self.browser = None
         self.page = None
-        self.storage_state_path = "/Users/doctordre/projects/4bot/config/profiles/4botbsc/storageState.json"
-        self.screenshot_dir = "/Users/doctordre/projects/4bot/Docs/status/diagnostics"
+        from xbot.profiles import storage_state_path
+        self.storage_state_path = str(storage_state_path("4botbsc"))
+        self.screenshot_dir = str(Path("Docs/status/diagnostics"))
 
     async def setup_browser(self):
         """Setup browser with authentication"""

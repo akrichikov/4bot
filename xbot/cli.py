@@ -57,6 +57,15 @@ vtermd_app = typer.Typer(no_args_is_help=True, add_completion=False)
 results_app = typer.Typer(no_args_is_help=True, add_completion=False)
 app.add_typer(results_app, name="results", help="Inspect raw results index")
 
+@report_app.command("repo-layout")
+def report_repo_layout(
+    out: Path = typer.Option(Path("Docs/status/repo_layout.md"), "--out", help="Output markdown path"),
+    depth: int = typer.Option(2, "--depth", help="Max directory depth to include"),
+) -> None:
+    from .repo_report import write_repo_layout_md
+    path = write_repo_layout_md(out, Path("."), max_depth=depth)
+    print(f"[green]Wrote[/green] {path}")
+
 
 def _cfg(
     headless: bool = typer.Option(True, help="Run headless"),
@@ -562,8 +571,28 @@ def profile_clear_state(name: str = typer.Argument("default")) -> None:
 @profile_app.command("show")
 def profile_show(name: str = typer.Argument("default")) -> None:
     from rich import print as rprint
-    s, u = profile_paths(name)
-    rprint({"profile": name, "storage_state": str(s), "user_data_dir": str(u), "overlay": read_overlay(name)})
+    from .profiles import storage_state_path, user_data_dir, validate
+    info = validate(name)
+    info["overlay"] = read_overlay(name)
+    rprint(info)
+
+
+@profile_app.command("info")
+def profile_info(name: str = typer.Argument("default")) -> None:
+    from rich import print as rprint
+    from .profiles import validate
+    rprint(validate(name))
+
+
+@profile_app.command("doctor")
+def profile_doctor(name: str = typer.Argument("default"), strict: bool = typer.Option(False, help="Exit non-zero if any check fails")) -> None:
+    from rich import print as rprint
+    from .profiles import validate
+    v = validate(name)
+    ok = bool(v.get("storage_exists")) and int(v.get("cookie_count", 0)) > 0 and bool(v.get("user_data_exists"))
+    rprint({"ok": ok, **v})
+    if strict and not ok:
+        raise typer.Exit(code=1)
 
 
 @profile_app.command("set-proxy")
@@ -991,7 +1020,9 @@ def health_proxy_cmd(
 def health_system_cmd(
     json_out: Optional[Path] = typer.Option(None, help="Path to write JSON report"),
     vterm_http_base: Optional[str] = typer.Option(None, help="Override VTerm HTTP base URL"),
+    strict: bool = typer.Option(False, help="Exit non-zero when any gate fails"),
 ) -> None:
+    from .health import evaluate_health_gates
     cfg = Config.from_env()
     report = asyncio.run(health_system(cfg, vterm_http_base=vterm_http_base))
     if json_out:
@@ -1000,6 +1031,11 @@ def health_system_cmd(
         print(f"[green]Wrote system health report to {json_out}[/green]")
     else:
         print(json.dumps(report, indent=2))
+    if strict:
+        ok, reasons = evaluate_health_gates(report)
+        if not ok:
+            print(f"[red]Strict gates failed:[/red] {', '.join(reasons) or 'unknown'}")
+            raise typer.Exit(code=1)
 
 
 @health_app.command("system-html")

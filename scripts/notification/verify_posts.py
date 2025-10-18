@@ -15,7 +15,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from playwright.async_api import async_playwright
-from xbot.cookies import load_cookie_json, merge_into_storage
+from xbot.cookies import load_cookies_best_effort, merge_into_storage
+from xbot.profiles import storage_state_path
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 logger = logging.getLogger('verify_posts')
@@ -24,14 +25,14 @@ logger = logging.getLogger('verify_posts')
 async def verify_posts():
     """Navigate to profile and check for posted tweets"""
 
-    cookies_path = "auth_data/x_cookies.json"
-    storage_state_path = "config/profiles/4botbsc/storageState.json"
+    profile = os.environ.get("PROFILE", "4botbsc")
+    storage_path = str(storage_state_path(profile))
 
     # Load cookies
-    if Path(cookies_path).exists():
-        cookies = load_cookie_json(Path(cookies_path))
+    cookies = load_cookies_best_effort(profile)
+    if cookies:
         merge_into_storage(
-            Path(storage_state_path),
+            Path(storage_path),
             cookies,
             filter_domains=[".x.com", ".twitter.com"]
         )
@@ -45,7 +46,7 @@ async def verify_posts():
     )
 
     context = await browser.new_context(
-        storage_state=storage_state_path if Path(storage_state_path).exists() else None,
+        storage_state=storage_path if Path(storage_path).exists() else None,
         viewport={"width": 1920, "height": 1080}
     )
 

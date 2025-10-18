@@ -15,6 +15,7 @@ from playwright.async_api import async_playwright, Page
 from xbot.rabbitmq_manager import RabbitMQManager
 from xbot.cookies import load_cookies_best_effort
 from xbot.config import Config
+from xbot.profiles import storage_state_path
 
 logging.basicConfig(
     level=logging.INFO,
@@ -32,7 +33,8 @@ class NotificationMonitor:
         self.page = None
         self.rabbitmq = RabbitMQManager()
         self.rabbitmq.connect()
-        self.storage_state = Path("config/profiles/4botbsc/storageState.json")
+        cfg = Config.from_env()
+        self.storage_state = storage_state_path(cfg.profile_name)
         self.seen_notifications = set()  # Track processed notifications
         self.poll_interval = 30  # Check every 30 seconds
         self.running = False

@@ -15,7 +15,7 @@ from selenium.webdriver.support import expected_conditions as EC
 import time
 
 # Paths
-PROJECT_DIR = Path("/Users/doctordre/projects/4bot")
+PROJECT_DIR = Path(__file__).resolve().parents[2]
 AUTH_DATA_DIR = PROJECT_DIR / "auth_data"
 COOKIES_FILE = AUTH_DATA_DIR / "x_cookies.json"
 TOKENS_FILE = AUTH_DATA_DIR / "x_tokens.json"

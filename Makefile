@@ -1,7 +1,7 @@
 PY = .venv/bin/python
 PIP = .venv/bin/pip
 
-.PHONY: venv install dev lint format test health cz-proxy cz-daemon notifications start-all stop-all hygiene
+.PHONY: venv install dev lint format test health cz-proxy cz-daemon notifications start-all stop-all hygiene pre-commit-install pre-commit-run site site-open health-strict status-index repo-layout
 
 venv:
 	python -m venv .venv
@@ -26,6 +26,13 @@ test:
 
 hygiene:
 	.venv/bin/pytest -q tests/test_repo_hygiene.py tests/test_wrapper_hygiene.py
+
+pre-commit-install:
+	$(PIP) install pre-commit
+	.venv/bin/pre-commit install
+
+pre-commit-run:
+	.venv/bin/pre-commit run --all-files
 
 health:
 	$(PY) -m xbot.cli health selectors --tweet-url $$HEALTH_TWEET_URL --profile $$PROFILE || true
@@ -57,3 +64,16 @@ status-index:
 site:
 	$(MAKE) system-health-html
 	$(MAKE) status-index
+
+site-open:
+	$(PY) - <<'PY'
+import pathlib, webbrowser
+p = pathlib.Path('Docs/status/index.html')
+webbrowser.open(p.resolve().as_uri())
+PY
+
+health-strict:
+	$(PY) -m xbot.cli health system --json-out Docs/status/system_health.json --strict || true
+
+repo-layout:
+	$(PY) -m xbot.cli report repo-layout --out Docs/status/repo_layout.md --depth 2

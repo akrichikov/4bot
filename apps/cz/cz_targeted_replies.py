@@ -23,7 +23,8 @@ except Exception:
     _sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
 
 from playwright.async_api import async_playwright, Page
-from xbot.cookies import load_cookie_json, merge_into_storage, load_cookies_best_effort
+from xbot.cookies import merge_into_storage, load_cookies_best_effort
+from xbot.profiles import storage_state_path
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 logger = logging.getLogger('CZ_TARGETED')
@@ -35,8 +36,8 @@ class CZTargetedReplyBot:
     def __init__(self):
         self.browser = None
         self.page = None
-        self.cookies_path = "auth_data/x_cookies.json"
-        self.storage_state_path = "config/profiles/4botbsc/storageState.json"
+        self.profile = os.environ.get("PROFILE", "4botbsc")
+        self.storage_state_path = str(storage_state_path(self.profile))
         self.replied_count = 0
         self.failed_count = 0
 
@@ -125,7 +126,7 @@ class CZTargetedReplyBot:
 
         os.makedirs(Path(self.storage_state_path).parent, exist_ok=True)
 
-        cookies = load_cookies_best_effort(profile="4botbsc")
+        cookies = load_cookies_best_effort(profile=self.profile)
         if cookies:
             merge_into_storage(Path(self.storage_state_path), cookies, filter_domains=[".x.com", ".twitter.com"])
             logger.info(f"✅ Loaded {len(cookies)} cookies for authentication")

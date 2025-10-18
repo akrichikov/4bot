@@ -13,6 +13,7 @@ from playwright.async_api import async_playwright, Page
 from xbot.rabbitmq_manager import RabbitMQManager, BotMessage
 from xbot.cookies import load_cookies_best_effort
 from xbot.config import Config
+from xbot.profiles import storage_state_path
 
 logging.basicConfig(
     level=logging.INFO,
@@ -28,7 +29,8 @@ class ReplyPoster:
         self.browser = None
         self.playwright = None
         self.rabbitmq = RabbitMQManager()
-        self.storage_state = Path("config/profiles/4botbsc/storageState.json")
+        cfg = Config.from_env()
+        self.storage_state = storage_state_path(cfg.profile_name)
         self.replies_posted = 0
         self.replies_failed = 0
         self.executor = ThreadPoolExecutor(max_workers=1)

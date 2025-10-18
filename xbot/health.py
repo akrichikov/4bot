@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 
 from playwright.async_api import TimeoutError as PwTimeoutError
 
@@ -279,3 +279,38 @@ async def system_health(cfg: Config, vterm_http_base: str | None = None) -> Dict
     report["rabbitmq"] = rmq
 
     return report
+
+
+def evaluate_health_gates(report: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    """Evaluate simple health gates and return (ok, reasons).
+
+    Gates:
+    - cookies: count > 0 and 'auth_token' present
+    - storage: exists and cookie_count > 0
+    - vterm_http: ok True
+    - rabbitmq: ok True
+    """
+    reasons: List[str] = []
+    ok = True
+
+    ck = report.get("cookies", {})
+    if not (int(ck.get("count", 0)) > 0 and ("auth_token" in set(ck.get("keys_present", [])))):
+        ok = False
+        reasons.append("cookies")
+
+    st = report.get("storage", {})
+    if not (bool(st.get("exists")) and int(st.get("cookie_count", 0)) > 0):
+        ok = False
+        reasons.append("storage")
+
+    vt = report.get("vterm_http", {})
+    if not bool(vt.get("ok")):
+        ok = False
+        reasons.append("vterm_http")
+
+    rmq = report.get("rabbitmq", {})
+    if not bool(rmq.get("ok")):
+        ok = False
+        reasons.append("rabbitmq")
+
+    return ok, reasons

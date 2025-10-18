@@ -8,9 +8,12 @@ from datetime import datetime
 from typing import List, Dict, Any
 from playwright.async_api import async_playwright
 
+from xbot.profiles import storage_state_path
+
+
 class MentionMonitor:
     def __init__(self):
-        self.storage_path = Path("config/profiles/4botbsc/storageState.json")
+        self.storage_path = storage_state_path("4botbsc")
         self.replied_tweets_file = Path("artifacts/state/replied_mentions.json")
         self.replied_tweets = self._load_replied_tweets()
 
