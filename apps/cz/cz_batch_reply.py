@@ -51,7 +51,8 @@ class Post:
 
 class CZBatchResponder:
     def __init__(self):
-        self.generator = CZBatchResponder()
+        # Use the shared deterministic generator
+        self.generator = CZReplyGenerator()
 
     def generate_reply(self, post: Post) -> str:
         return self.generator.generate(post.author, post.content, post.url)
