@@ -19,8 +19,8 @@ echo ""
 
 # Authentication Status
 echo "┌─ Authentication ──────────────────────────────────────────┐"
-if [ -f "/Users/doctordre/projects/4bot/auth/4botbsc/storageState.json" ]; then
-    COOKIE_COUNT=$(jq '.cookies | length' /Users/doctordre/projects/4bot/auth/4botbsc/storageState.json 2>/dev/null)
+if [ -f "auth/4botbsc/storageState.json" ]; then
+    COOKIE_COUNT=$(jq '.cookies | length' auth/4botbsc/storageState.json 2>/dev/null)
     echo "│ ✅ Cookies: $COOKIE_COUNT tokens loaded                           │"
 else
     echo "│ ❌ No auth file found                                         │"
@@ -30,8 +30,8 @@ echo ""
 
 # Reply History
 echo "┌─ Reply History ───────────────────────────────────────────┐"
-if [ -f "/Users/doctordre/projects/4bot/replied_mentions.json" ]; then
-    REPLY_COUNT=$(jq 'length' /Users/doctordre/projects/4bot/replied_mentions.json 2>/dev/null)
+if [ -f "replied_mentions.json" ]; then
+    REPLY_COUNT=$(jq 'length' replied_mentions.json 2>/dev/null)
     echo "│ 📊 Total Replies: $REPLY_COUNT mentions                            │"
 else
     echo "│ 📊 Total Replies: 0 (file will be created on first reply)  │"
@@ -54,8 +54,8 @@ echo ""
 echo "┌─ Quick Commands ──────────────────────────────────────────┐"
 echo "│ View logs:     tail -20 Docs/status/mention_monitor.log   │"
 echo "│ Stop monitor:  pkill -f monitor_mentions.py               │"
-echo "│ Start monitor: python monitor_mentions.py &               │"
-echo "│ Test reply:    python reply_to_mention.py                 │"
+echo "│ Start monitor: python -m scripts.monitor.monitor_mentions & │"
+echo "│ Test reply:    python -m apps.cz.reply_to_mention           │"
 echo "│ Re-auth:       xbot login --profile 4botbsc               │"
 echo "└────────────────────────────────────────────────────────────┘"
 echo ""

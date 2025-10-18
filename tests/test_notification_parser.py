@@ -90,7 +90,7 @@ class TestNotificationParser(AsyncBaseTestFixture):
     @pytest.mark.asyncio
     async def test_notification_deduplication(self):
         """Test notification deduplication using Set tracking"""
-        from final_notification_json_parser import NotificationJSONParser
+        from xbot.notification_json_parser import NotificationJSONParser
 
         parser = NotificationJSONParser()
 
@@ -255,7 +255,7 @@ class TestNotificationParser(AsyncBaseTestFixture):
     @pytest.mark.asyncio
     async def test_json_output_structure(self):
         """Test JSON output structure and schema"""
-        from final_notification_json_parser import ParsedNotification, NotificationUser, PostContent
+        from xbot.notification_json_parser import ParsedNotification, NotificationUser, PostContent
 
         # Create a complete notification
         notification = ParsedNotification(

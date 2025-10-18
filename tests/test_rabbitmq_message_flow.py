@@ -35,7 +35,7 @@ setattr(pytest, "approx_match", approx_match)
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tests.base_test_fixture import BaseTestFixture
-from rabbitmq_manager import RabbitMQManager, BotMessage, NotificationPublisher, CommandConsumer
+from xbot.rabbitmq_manager import RabbitMQManager, BotMessage, NotificationPublisher, CommandConsumer
 
 
 class TestRabbitMQMessageFlow(BaseTestFixture):

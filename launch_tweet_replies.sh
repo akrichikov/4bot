@@ -12,11 +12,12 @@ echo "║  🚀 Mode: HEADLESS                                          ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo ""
 
-# Set working directory
-cd /Users/doctordre/projects/4bot
+# Set working directory to repo root
+cd "$(cd "$(dirname "$0")" && pwd)" || exit 1
+cd .. 2>/dev/null || true
 
 # Export environment
-export PYTHONPATH="/Users/doctordre/projects/4bot:$PYTHONPATH"
+export PYTHONPATH="$(pwd):$PYTHONPATH"
 export X_USER="4botbsc@gmail.com"
 
 # Create log directory
@@ -34,7 +35,7 @@ echo "   Log: $LOG_FILE"
 echo ""
 
 # Count URLs in file
-URL_COUNT=$(grep -o 'https://x\.com/[^/]*/status/[0-9]*' "/Users/doctordre/projects/4bot/Docs/4Bot Tweets.md" | sort -u | wc -l)
+URL_COUNT=$(grep -o 'https://x\.com/[^/]*/status/[0-9]*' "Docs/4Bot Tweets.md" | sort -u | wc -l)
 echo "📋 Found $URL_COUNT unique tweet URLs to process"
 echo ""
 
@@ -49,7 +50,7 @@ echo "   Press Ctrl+C to stop"
 echo ""
 
 # Run the tweet reply script
-python3 cz_reply_to_tweets.py 2>&1 | tee "$LOG_FILE"
+python3 -m apps.cz.cz_reply_to_tweets 2>&1 | tee "$LOG_FILE"
 
 echo ""
 echo "✅ Tweet reply process complete!"

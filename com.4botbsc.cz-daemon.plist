@@ -9,7 +9,8 @@
     <array>
         <string>/usr/bin/env</string>
         <string>python3</string>
-        <string>/Users/doctordre/projects/4bot/cz_vterm_rabbitmq_daemon.py</string>
+        <string>-m</string>
+        <string>apps.cz.cz_vterm_rabbitmq_daemon</string>
     </array>
 
     <key>WorkingDirectory</key>

@@ -79,14 +79,14 @@ case "$1" in
         # 3. Start VTerm Request Proxy Manager
         start_component \
             "VTerm Request Proxy" \
-            "python3 vterm_request_proxy_manager.py" \
+            "python3 -m apps.cz.vterm_request_proxy_manager" \
             "$LOG_DIR/vterm_proxy.log" \
             "pgrep -f vterm_request_proxy_manager.py"
 
         # 4. Start CZ Notification Daemon
         start_component \
             "CZ Notification Daemon" \
-            "python3 cz_vterm_rabbitmq_daemon.py" \
+            "python3 -m apps.cz.cz_vterm_rabbitmq_daemon" \
             "$LOG_DIR/cz_daemon.log" \
             "pgrep -f cz_vterm_rabbitmq_daemon.py"
 
@@ -166,13 +166,17 @@ case "$1" in
 
         echo "📤 Sending test notification to RabbitMQ..."
 
-        # Create test script
-        cat > /tmp/test_pipeline.py << 'EOF'
+        # Create test script under repo (no /tmp)
+        mkdir -p "$SCRIPT_DIR/artifacts/tmp"
+        cat > "$SCRIPT_DIR/artifacts/tmp/test_pipeline.py" << 'EOF'
 #!/usr/bin/env python3
 import sys
-sys.path.insert(0, '/Users/doctordre/projects/4bot')
+from pathlib import Path
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-from rabbitmq_manager import RabbitMQManager
+from xbot.rabbitmq_manager import RabbitMQManager
 
 # Send test CZ reply request
 manager = RabbitMQManager()
@@ -193,7 +197,7 @@ else:
     print("❌ Failed to connect to RabbitMQ")
 EOF
 
-        python3 /tmp/test_pipeline.py
+        python3 "$SCRIPT_DIR/artifacts/tmp/test_pipeline.py"
 
         echo ""
         echo "⏳ Waiting for processing..."

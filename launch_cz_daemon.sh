@@ -121,5 +121,5 @@ else
     echo ""
 
     # Run in foreground
-    python3 cz_vterm_rabbitmq_daemon.py
+    python3 -m apps.cz.cz_vterm_rabbitmq_daemon
 fi

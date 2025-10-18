@@ -39,6 +39,10 @@ class Config(BaseModel):
     # HAR capture
     har_enabled: bool = Field(default=False)
     har_dir: Path = Field(default=Path("artifacts/har"))
+    # Centralized roots
+    artifacts_dir: Path = Field(default=Path("artifacts"))
+    logs_dir: Path = Field(default=Path("logs"))
+    notification_log_dir: Path = Field(default=Path("notification_json_logs"))
     # Human-like interaction
     humanize: bool = Field(default=True)
     type_min_ms: int = Field(default=20)
@@ -139,6 +143,9 @@ class Config(BaseModel):
             slow_mo_ms=int(getenv("SLOW_MO_MS", "0")),
             har_enabled=_parse_bool(getenv("HAR_ENABLED", "false")),
             har_dir=Path(getenv("HAR_DIR", "artifacts/har")),
+            artifacts_dir=Path(getenv("ARTIFACTS_DIR", "artifacts")),
+            logs_dir=Path(getenv("LOGS_DIR", "logs")),
+            notification_log_dir=Path(getenv("NOTIFICATION_LOG_DIR", "notification_json_logs")),
             humanize=_parse_bool(getenv("HUMANIZE", "true")),
             type_min_ms=int(getenv("TYPE_MIN_MS", "20")),
             type_max_ms=int(getenv("TYPE_MAX_MS", "60")),

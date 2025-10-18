@@ -27,6 +27,9 @@ dev = [
 
 [project.scripts]
 xbot = "xbot.cli:app"
+cz-proxy = "apps.cz.vterm_request_proxy_manager:main"
+cz-daemon = "apps.cz.cz_vterm_rabbitmq_daemon:main"
+xbot-notifications = "xbot.notification_json_parser:main"
 
 [tool.pytest.ini_options]
 addopts = "-q"

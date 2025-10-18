@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Tuple
+import itertools
 
 
 Cookie = Dict[str, Any]
@@ -97,3 +98,44 @@ def merge_into_storage(storage_path: Path, new_cookies: Iterable[Cookie], filter
     storage_path.parent.mkdir(parents=True, exist_ok=True)
     storage_path.write_text(json.dumps(storage, ensure_ascii=False, indent=2))
     return count
+
+
+def _variants_for_x(dom: str) -> List[str]:
+    v = [dom]
+    if "twitter.com" in dom and "x.com" not in dom:
+        v.append(dom.replace("twitter.com", "x.com"))
+    if dom.startswith(".") and not dom.endswith("x.com"):
+        v.append(".x.com")
+    return list(dict.fromkeys(v))
+
+
+def load_cookies_best_effort(profile: str = "4botbsc") -> List[Cookie]:
+    """Load cookies from best available sources for a profile.
+
+    Order of precedence:
+      1) auth_data/x_cookies.json (netscape/chrome export)
+      2) chrome_profiles/cookies/default_cookies.json (project export)
+      3) config/profiles/<profile>/storageState.json (playwright state) – treated as cookie source
+      4) auth/<profile>/storageState.json (legacy state) – treated as cookie source
+    """
+    candidates = [
+        Path("auth_data/x_cookies.json"),
+        Path("chrome_profiles/cookies/default_cookies.json"),
+        Path("config/profiles") / profile / "storageState.json",
+        Path("auth") / profile / "storageState.json",
+    ]
+    cookies: List[Cookie] = []
+    for p in candidates:
+        try:
+            if p.exists():
+                cookies.extend(load_cookie_json(p))
+        except Exception:
+            continue
+    # Add x.com variants for twitter.com
+    out: Dict[Tuple[str, str, str], Cookie] = {}
+    for c in cookies:
+        dom = c.get("domain", "")
+        for d in _variants_for_x(dom):
+            cc = dict(c); cc["domain"] = d
+            out[_ckey(cc)] = cc
+    return list(out.values())

@@ -26,7 +26,7 @@ from .vterm import VTerm
 from .vtermd import VTermDaemon, client_request, DEFAULT_SOCKET
 from .vterm_http import VTermHTTPServer
 from .auto_responder import ClaudeGen
-from cz_vterm_rabbitmq_daemon import CZVTermDaemon
+from apps.cz.cz_vterm_rabbitmq_daemon import CZVTermDaemon
 import sys
 import shlex
 import json
@@ -1229,7 +1229,7 @@ def reply_notmine(
                 continue
             for _ in range(12):  # ~12 screens
                 items = await page.evaluate(
-                    """
+                    r"""
                     () => {
                       const out = [];
                       for (const a of document.querySelectorAll('article')) {
