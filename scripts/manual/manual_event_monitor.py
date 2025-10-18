@@ -26,12 +26,14 @@ from xbot.event_interceptor import (
 from xbot.notifications import NotificationHandler, NotificationAggregator, NotificationFilter
 
 # Configure logging
+logs_dir = Path('logs')
+logs_dir.mkdir(parents=True, exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler('event_monitor.log')
+        logging.FileHandler(str(logs_dir / 'event_monitor.log'))
     ]
 )
 logger = logging.getLogger(__name__)

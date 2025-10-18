@@ -16,11 +16,13 @@ from .playbook import run_playbook
 from .health import run_selector_health
 from .health import tweet_state as health_tweet_state, compose_health as health_compose
 from .health import proxy_check as health_proxy_check
+from .health import system_health as health_system
 from .health import selectors_snapshot as health_selectors_snapshot, evaluate_snapshot as health_evaluate_snapshot, drift_hints as health_drift_hints
 from .results import record_action_result
 from .scheduler import run_schedule
 from .report import summary as report_summary, export_csv as report_export_csv, check_threshold as report_check_threshold
 from .report_html import html_report as report_html
+from .report_health import write_system_health_html
 from .profiles import profile_paths, list_profiles, ensure_profile_dirs, clear_state, set_overlay_value, del_overlay_key, read_overlay
 from .vterm import VTerm
 from .vtermd import VTermDaemon, client_request, DEFAULT_SOCKET
@@ -813,6 +815,59 @@ def session_check() -> None:
     asyncio.run(_run())
 
 
+@app.command("auth-check")
+def auth_check(
+    profile: str = typer.Option("default", help="Named profile to audit"),
+    headless: bool = typer.Option(True, help="Run browser headless for verification"),
+) -> None:
+    """Audit cookies and verify session login in a real browser context."""
+    from .cookies import load_cookies_best_effort, merge_into_storage
+    cfg = Config.from_env()
+    if profile:
+        cfg.profile_name = profile
+    # Prefer config/profiles/<profile>/storageState.json
+    cfg_storage = Path("config/profiles") / cfg.profile_name / "storageState.json"
+    if cfg_storage.exists():
+        cfg.storage_state = cfg_storage
+        cfg.user_data_dir = Path(".x-user") / cfg.profile_name
+    else:
+        s, u = profile_paths(cfg.profile_name)
+        cfg.storage_state = s
+        cfg.user_data_dir = u
+    cfg.headless = headless
+
+    cookies = load_cookies_best_effort(profile=cfg.profile_name)
+    key_names = {"auth_token", "ct0", "kdt", "att"}
+    present = {c.get("name") for c in cookies if isinstance(c, dict)}
+    have = sorted(list(key_names & present))
+    print(f"[cyan]Cookie audit:[/cyan] total={len(cookies)} keys={have}")
+
+    # Merge cookies into storage if storage missing or empty
+    try:
+        need_merge = not cfg.storage_state.exists()
+        if not need_merge:
+            try:
+                data = json.loads(cfg.storage_state.read_text())
+                need_merge = not data.get("cookies")
+            except Exception:
+                need_merge = True
+        if cookies and need_merge:
+            merge_into_storage(cfg.storage_state, cookies, filter_domains=[".x.com", ".twitter.com"])
+            print(f"[green]Merged cookies -> {cfg.storage_state}[/green]")
+    except Exception:
+        pass
+
+    async def _run() -> None:
+        async with Browser(cfg, label="auth-check") as b:
+            await b.page.goto(cfg.base_url, wait_until="domcontentloaded")
+            ok = await is_logged_in(b.page)
+            if ok:
+                print("[green]Session valid (logged in).[/green]")
+            else:
+                print("[yellow]Session not logged in.[/yellow]")
+    asyncio.run(_run())
+
+
 @session_app.command("bootstrap")
 def session_bootstrap(
     headless: bool = typer.Option(False, help="Open a visible browser window for manual login"),
@@ -930,6 +985,37 @@ def health_proxy_cmd(
         rprint({"ok": ok, **data})
 
     asyncio.run(_run())
+
+
+@health_app.command("system")
+def health_system_cmd(
+    json_out: Optional[Path] = typer.Option(None, help="Path to write JSON report"),
+    vterm_http_base: Optional[str] = typer.Option(None, help="Override VTerm HTTP base URL"),
+) -> None:
+    cfg = Config.from_env()
+    report = asyncio.run(health_system(cfg, vterm_http_base=vterm_http_base))
+    if json_out:
+        json_out.parent.mkdir(parents=True, exist_ok=True)
+        json_out.write_text(json.dumps(report, indent=2))
+        print(f"[green]Wrote system health report to {json_out}[/green]")
+    else:
+        print(json.dumps(report, indent=2))
+
+
+@health_app.command("system-html")
+def health_system_html_cmd(
+    out_html: Path = typer.Option(Path("Docs/status/system_health.html"), help="HTML output path"),
+    out_json: Optional[Path] = typer.Option(Path("Docs/status/system_health.json"), help="Optional JSON output path"),
+    vterm_http_base: Optional[str] = typer.Option(None, help="Override VTerm HTTP base URL"),
+) -> None:
+    cfg = Config.from_env()
+    report = asyncio.run(health_system(cfg, vterm_http_base=vterm_http_base))
+    if out_json:
+        out_json.parent.mkdir(parents=True, exist_ok=True)
+        out_json.write_text(json.dumps(report, indent=2))
+        print(f"[green]Wrote {out_json}[/green]")
+    path = write_system_health_html(report, out_html)
+    print(f"[green]Wrote {path}[/green]")
 
 
 @health_app.command("snapshot")

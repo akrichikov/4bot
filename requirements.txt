@@ -1,0 +1,16 @@
+playwright
+pydantic
+python-dotenv
+typer
+rich
+tenacity
+pyotp
+aiohttp
+pycryptodome
+
+# Dev/Test
+pytest
+pytest-asyncio
+ruff
+black
+pika

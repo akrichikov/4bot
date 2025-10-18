@@ -136,6 +136,10 @@ dist/
 
 # Runtime artifacts
 artifacts/
+logs/
+
+# Local MacOS LaunchAgents copies
+~/Library/LaunchAgents/com.4botbsc.*.plist
 
 # Python venv and Playwright/state
 .venv/

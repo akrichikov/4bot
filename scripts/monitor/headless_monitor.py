@@ -14,7 +14,9 @@ from playwright.async_api import async_playwright
 import logging
 
 # Setup logging to both file and console
-log_file = f'monitor_log_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'
+logs_dir = Path('logs/monitor')
+logs_dir.mkdir(parents=True, exist_ok=True)
+log_file = str(logs_dir / f'headless_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log')
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(message)s',
@@ -98,7 +100,9 @@ class HeadlessMonitor:
                             logger.info("This post contains AI-related content")
 
                             # Save to special file
-                            with open('ai_posts_intercepted.json', 'a') as f:
+                            results_dir = Path('artifacts/results')
+                            results_dir.mkdir(parents=True, exist_ok=True)
+                            with open(results_dir / 'ai_posts_intercepted.json', 'a') as f:
                                 json.dump(post_data, f)
                                 f.write('\n')
 
@@ -228,7 +232,7 @@ class HeadlessMonitor:
             logger.info(f"Log saved to: {log_file}")
 
             # Save all intercepted posts to JSON
-            with open(f'intercepted_posts_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json', 'w') as f:
+            with open(results_dir / f'intercepted_posts_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json', 'w') as f:
                 json.dump(self.posts_intercepted, f, indent=2)
 
             logger.info("=" * 70)

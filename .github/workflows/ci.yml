@@ -40,5 +40,16 @@ jobs:
       - name: Install Playwright (optional)
         run: |
           python -m playwright install chromium
+          python -m playwright install-deps || true
       - name: Run tests (non-live)
         run: pytest -q -k "not browser_cookie_test and not live and not rabbitmq"
+      - name: Generate system health (best-effort)
+        continue-on-error: true
+        run: |
+          make system-health || true
+      - name: Upload Docs/status as artifact for Pages
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xbot-reports
+          path: Docs/status

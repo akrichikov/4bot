@@ -44,7 +44,7 @@ if [ "$1" == "launchd" ]; then
     echo "📱 Installing as launchd daemon..."
 
     # Copy plist to LaunchAgents
-    cp com.4botbsc.cz-daemon.plist ~/Library/LaunchAgents/
+    cp bin/launchd/com.4botbsc.cz-daemon.plist ~/Library/LaunchAgents/
 
     # Unload if already loaded
     launchctl unload ~/Library/LaunchAgents/com.4botbsc.cz-daemon.plist 2>/dev/null

@@ -34,7 +34,7 @@ except:
 
 # Get replied tweets
 try:
-    replied_count = len(json.loads(Path("replied_mentions.json").read_text()))
+    replied_count = len(json.loads(Path("artifacts/state/replied_mentions.json").read_text()))
 except:
     replied_count = 0
 

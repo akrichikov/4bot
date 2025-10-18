@@ -37,7 +37,13 @@ notifications:
 	$(PY) -m xbot.notification_json_parser --duration 60
 
 start-all:
-	./launch_complete_pipeline.sh start
+	scripts/shell/launch_complete_pipeline.sh start
 
 stop-all:
-	./launch_complete_pipeline.sh stop
+	scripts/shell/launch_complete_pipeline.sh stop
+
+system-health:
+	$(PY) -m xbot.cli health system --json-out Docs/status/system_health.json || true
+
+system-health-html:
+	$(PY) -m xbot.cli health system-html --out-html Docs/status/system_health.html --out-json Docs/status/system_health.json || true

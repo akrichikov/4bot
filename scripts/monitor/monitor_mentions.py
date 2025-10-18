@@ -10,8 +10,8 @@ from playwright.async_api import async_playwright
 
 class MentionMonitor:
     def __init__(self):
-        self.storage_path = Path("/Users/doctordre/projects/4bot/auth/4botbsc/storageState.json")
-        self.replied_tweets_file = Path("/Users/doctordre/projects/4bot/replied_mentions.json")
+        self.storage_path = Path("config/profiles/4botbsc/storageState.json")
+        self.replied_tweets_file = Path("artifacts/state/replied_mentions.json")
         self.replied_tweets = self._load_replied_tweets()
 
     def _load_cookies(self) -> List[Dict[str, Any]]:
@@ -35,6 +35,7 @@ class MentionMonitor:
     def _save_replied_tweet(self, tweet_id: str):
         """Save tweet ID to avoid duplicate replies."""
         self.replied_tweets.add(tweet_id)
+        self.replied_tweets_file.parent.mkdir(parents=True, exist_ok=True)
         with open(self.replied_tweets_file, 'w') as f:
             json.dump(list(self.replied_tweets), f, indent=2)
 

@@ -24,6 +24,10 @@ from .browser import Browser
 import json
 import re
 from .selectors import UNLIKE_BUTTON, UNRETWEET_BUTTON
+from .cookies import load_cookies_best_effort
+from .rabbitmq_manager import RabbitMQManager
+import aiohttp
+from time import perf_counter as _perf
 
 
 @dataclass
@@ -217,3 +221,61 @@ async def proxy_check(cfg: Config, url: str = "https://api.ipify.org?format=json
             if m:
                 ip = m.group(1)
         return {"url": url, "ip": ip, "headers": headers, "userAgent": ua, "raw": body[:1000]}
+
+
+async def system_health(cfg: Config, vterm_http_base: str | None = None) -> Dict[str, Any]:
+    report: Dict[str, Any] = {"cookies": {}, "storage": {}, "vterm_http": {}, "rabbitmq": {}}
+
+    # Cookies
+    cookies = load_cookies_best_effort(profile=cfg.profile_name)
+    key_names = {"auth_token", "ct0", "kdt", "att"}
+    present = {c.get("name") for c in cookies if isinstance(c, dict)}
+    report["cookies"] = {
+        "count": len(cookies),
+        "keys_present": sorted(list(key_names & present)),
+    }
+
+    # Storage
+    st = {"path": str(cfg.storage_state), "exists": False, "cookie_count": 0}
+    try:
+        st["exists"] = cfg.storage_state.exists()
+        if st["exists"]:
+            data = json.loads(cfg.storage_state.read_text())
+            st["cookie_count"] = len(data.get("cookies", []))
+    except Exception as e:
+        st["error"] = str(e)
+    report["storage"] = st
+
+    # VTerm HTTP
+    base = (vterm_http_base or cfg.vterm_http_base or "http://127.0.0.1:8765").rstrip("/")
+    vth = {"base": base, "ok": False}
+    try:
+        t0 = _perf()
+        async with aiohttp.ClientSession() as s:
+            async with s.get(f"{base}/health", timeout=3) as r:
+                vth["status"] = r.status
+                vth["ok"] = (r.status == 200)
+                vth["latency_ms"] = int((_perf() - t0) * 1000)
+                try:
+                    payload = await r.json()
+                    vth["payload"] = payload
+                except Exception:
+                    vth["payload"] = (await r.text())[:200]
+    except Exception as e:
+        vth["error"] = str(e)
+    report["vterm_http"] = vth
+
+    # RabbitMQ
+    rmq = {"ok": False}
+    try:
+        m = RabbitMQManager()
+        ok = m.connect()
+        rmq["ok"] = bool(ok)
+        if hasattr(m, "connection") and m.connection:
+            rmq["is_closed"] = getattr(m.connection, "is_closed", None)
+        m.close()
+    except Exception as e:
+        rmq["error"] = str(e)
+    report["rabbitmq"] = rmq
+
+    return report

@@ -78,9 +78,11 @@ async def verify_posts():
         await asyncio.sleep(3)
         logger.info("📍 Clicked on Posts tab")
 
-    # Take a screenshot for verification
-    screenshot_path = "/Users/doctordre/projects/4bot/profile_verification.png"
-    await page.screenshot(path=screenshot_path, full_page=False)
+    # Take a screenshot for verification (repo-relative path)
+    screens_dir = ROOT / "artifacts" / "screens"
+    screens_dir.mkdir(parents=True, exist_ok=True)
+    screenshot_path = screens_dir / "profile_verification.png"
+    await page.screenshot(path=str(screenshot_path), full_page=False)
     logger.info(f"📸 Screenshot saved to {screenshot_path}")
 
     logger.info("\n🔍 Please check the browser window to see the profile page")

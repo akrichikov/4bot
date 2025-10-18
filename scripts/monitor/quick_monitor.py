@@ -22,7 +22,7 @@ from xbot.notifications import NotificationHandler
 class QuickMonitor:
     """Simplified monitor for quick deployment."""
 
-    def __init__(self, config_file='monitor_config.json'):
+    def __init__(self, config_file='config/monitor/monitor_config.json'):
         self.config = self.load_config(config_file)
         self.interceptor = EventInterceptor()
         self.posts_collected = []

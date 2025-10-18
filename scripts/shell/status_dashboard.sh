@@ -30,8 +30,8 @@ echo ""
 
 # Reply History
 echo "┌─ Reply History ───────────────────────────────────────────┐"
-if [ -f "replied_mentions.json" ]; then
-    REPLY_COUNT=$(jq 'length' replied_mentions.json 2>/dev/null)
+if [ -f "artifacts/state/replied_mentions.json" ]; then
+    REPLY_COUNT=$(jq 'length' artifacts/state/replied_mentions.json 2>/dev/null)
     echo "│ 📊 Total Replies: $REPLY_COUNT mentions                            │"
 else
     echo "│ 📊 Total Replies: 0 (file will be created on first reply)  │"
