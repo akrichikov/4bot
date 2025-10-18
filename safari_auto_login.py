@@ -141,20 +141,43 @@ class SafariAutoLogin:
             logger.error(f"Error entering username: {e}")
             return False
 
-        # Wait for password input
-        logger.info("🔑 Entering password...")
+        # Handle possible intermediate challenge before password
+        logger.info("🔑 Entering password (handling possible username/phone challenge)...")
         try:
+            # Some flows ask to confirm username/email/phone again
+            try:
+                challenge_input = await self.page.wait_for_selector('input[name="text"]', timeout=4000)
+                if challenge_input:
+                    logger.info("   Challenge step detected: filling username again")
+                    await challenge_input.click()
+                    await asyncio.sleep(0.5)
+                    await challenge_input.fill(self.username)
+                    await asyncio.sleep(1)
+                    # Next after challenge
+                    for sel in ['button:has-text("Next")', 'div[role="button"]:has-text("Next")', '[data-testid="ocfEnterTextNextButton"]']:
+                        try:
+                            btn = await self.page.query_selector(sel)
+                            if btn:
+                                await btn.click()
+                                break
+                        except:
+                            pass
+                    await asyncio.sleep(3)
+            except Exception:
+                pass
+
+            # Now locate password
             password_selectors = [
                 'input[autocomplete="current-password"]',
                 'input[name="password"]',
                 'input[type="password"]',
+                '[data-testid="LoginForm_PasswordField"] input',
                 '[data-testid="login-password"]'
             ]
-
             password_input = None
             for selector in password_selectors:
                 try:
-                    password_input = await self.page.wait_for_selector(selector, timeout=5000)
+                    password_input = await self.page.wait_for_selector(selector, timeout=6000)
                     if password_input:
                         logger.info(f"   Found password field: {selector}")
                         break
@@ -165,40 +188,25 @@ class SafariAutoLogin:
                 logger.error("❌ Could not find password input field")
                 return False
 
-            # Type password
             await password_input.click()
             await asyncio.sleep(0.5)
             await password_input.fill(self.password)
             await asyncio.sleep(1)
 
-            # Click Log in button
             logger.info("🚀 Clicking Log in...")
-
-            # Try multiple selectors for Log in button
-            login_button_selectors = [
+            for selector in [
                 'button:has-text("Log in")',
                 'div[role="button"]:has-text("Log in")',
                 '[data-testid="LoginForm_Login_Button"]',
-                'button[type="submit"]'
-            ]
-
-            clicked = False
-            for selector in login_button_selectors:
+                'button[type="submit"]']:
                 try:
-                    login_button = await self.page.wait_for_selector(selector, timeout=3000)
+                    login_button = await self.page.query_selector(selector)
                     if login_button:
-                        logger.info(f"   Found Log in button: {selector}")
                         await login_button.click()
-                        clicked = True
                         break
                 except:
-                    continue
-
-            if not clicked:
-                logger.info("   Trying keyboard Enter instead...")
-                await self.page.keyboard.press('Enter')
-
-            await asyncio.sleep(6)
+                    pass
+            await asyncio.sleep(8)
 
         except Exception as e:
             logger.error(f"Error entering password: {e}")

@@ -25,6 +25,7 @@ sys.path.insert(0, '/Users/doctordre/projects/4bot')
 
 from xbot.config import Config
 from xbot.browser import Browser
+from xbot.flows.login import login_if_needed
 from xbot.cookies import load_cookie_json, merge_into_storage
 from playwright.async_api import Page, BrowserContext, async_playwright
 from rabbitmq_manager import RabbitMQManager, BotMessage
@@ -85,7 +86,11 @@ class TabManager:
 
         # Load storage state if exists
         storage_path = Path("config/profiles/4botbsc/storageState.json")
-        if storage_path.exists():
+        auth_mode = (os.getenv('AUTH_MODE') or '').lower()
+        if auth_mode == 'cookies':
+            self.auth_state = None
+            logger.info("🔐 AUTH_MODE=cookies → using in-memory cookies only")
+        elif storage_path.exists():
             with open(storage_path) as f:
                 self.auth_state = json.load(f)
 
@@ -118,9 +123,12 @@ class TabManager:
                 user_agent=ua
             )
 
-            # Add cookies if no storage state
-            if self.cookies and not self.auth_state:
-                await context.add_cookies(self.cookies)
+            # Add cookies; if storage_state exists they'll override where applicable
+            if self.cookies:
+                try:
+                    await context.add_cookies(self.cookies)
+                except Exception:
+                    pass
 
             # Create new page
             page = await context.new_page()
@@ -355,13 +363,68 @@ class NotificationMonitor:
 
                 notifications_data = await page.evaluate(script)
 
-                # Filter new mentions
+                # Also use enhanced extractor via console to improve coverage
+                collected: list[dict] = []
+                def _on_console(msg):
+                    try:
+                        t = msg.text
+                        if t.startswith('__ENHANCED_NOTIFICATION__:'):
+                            data = json.loads(t.split(':', 1)[1])
+                            collected.append(data)
+                    except Exception:
+                        pass
+                page.on("console", _on_console)
+                try:
+                    script_path = Path("enhanced_notification_extractor.js")
+                    if script_path.exists():
+                        await page.evaluate(script_path.read_text(encoding='utf-8'))
+                        await asyncio.sleep(1)
+                        for d in collected:
+                            url = d.get('url') or ''
+                            if '/status/' not in url:
+                                continue
+                            nid = url.split('/status/')[1].split('/')[0]
+                            author_handle = d.get('from_handle') or ''
+                            author = d.get('from_name') or author_handle
+                            content = d.get('content') or d.get('full_text') or ''
+                            row = {
+                                'id': nid,
+                                'type': d.get('type') or 'mention',
+                                'author': author,
+                                'author_handle': author_handle,
+                                'content': content,
+                                'url': url,
+                                'timestamp': d.get('timestamp') or datetime.now().isoformat(),
+                            }
+                            notifications_data.append(row)
+                except Exception:
+                    pass
+
+                # Filter new mentions (only those that reference @4botbsc and are not self)
                 for data in notifications_data:
-                    if data['id'] not in self.processed_ids:
-                        event = NotificationEvent(**data)
+                    try:
+                        cid = data.get('id')
+                        if not cid or cid in self.processed_ids:
+                            continue
+                        content = (data.get('content') or '').lower()
+                        author_handle = (data.get('author_handle') or '').lower()
+                        url = data.get('url') or ''
+                        if ('@4botbsc' not in content) or ('/status/' not in url) or (author_handle == '4botbsc'):
+                            continue
+                        event = NotificationEvent(
+                            id=cid,
+                            type=data.get('type') or 'mention',
+                            author=data.get('author') or data.get('author_handle') or '',
+                            author_handle=data.get('author_handle') or '',
+                            content=data.get('content') or '',
+                            url=url,
+                            timestamp=data.get('timestamp') or datetime.now().isoformat(),
+                        )
+                        self.processed_ids.add(cid)
                         mentions.append(event)
-                        self.processed_ids.add(data['id'])
                         logger.info(f"📥 New @4botbsc mention from @{event.author_handle}")
+                    except Exception:
+                        continue
 
             except Exception as e:
                 logger.error(f"Error getting mentions: {e}")
@@ -420,6 +483,17 @@ class RabbitMQBridge:
 
                 if not url or not text:
                     return False
+
+                # Ensure session is authenticated; attempt cookie-based first, then credential login if needed
+                try:
+                    cfg = Config.from_env()
+                    cfg.headless = True
+                    cfg.persist_session = False
+                    # Force WebKit/Safari-like engine semantics
+                    cfg.browser_name = 'webkit'  # type: ignore[assignment]
+                    await login_if_needed(page, cfg)
+                except Exception:
+                    pass
 
                 # Navigate to tweet
                 await page.goto(url, wait_until="domcontentloaded")

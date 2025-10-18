@@ -37,8 +37,12 @@ class Browser:
                 await self._ctx.tracing.stop(path=str(self._trace_path))  # type: ignore[union-attr]
             except Exception:
                 pass
-        if self.cfg.storage_state:
-            await export_storage_state(self._ctx, self.cfg.storage_state)
+        # Export storage only for persistent sessions; ephemeral tabs skip
+        if self.cfg.persist_session and self.cfg.storage_state:
+            try:
+                await export_storage_state(self._ctx, self.cfg.storage_state)
+            except Exception:
+                pass
         await self._ctx.close()  # type: ignore[union-attr]
 
     @property

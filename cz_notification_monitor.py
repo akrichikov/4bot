@@ -7,6 +7,8 @@ Monitors Twitter/X notifications for @4botbsc mentions and triggers auto-replies
 import asyncio
 import json
 import logging
+import os
+import os
 from pathlib import Path
 from datetime import datetime
 from playwright.async_api import async_playwright, Page
@@ -43,20 +45,69 @@ class NotificationMonitor:
 
         playwright = await async_playwright().start()
 
-        self.browser = await playwright.chromium.launch(
-            headless=True,
-            args=[
-                '--disable-blink-features=AutomationControlled',
-                '--disable-dev-shm-usage',
-                '--no-sandbox',
-            ]
-        )
+        # Safari headless, in-memory optional via AUTH_MODE=cookies
+        engine = 'webkit'
+        self.browser = await getattr(playwright, engine).launch(headless=True)
+
+        auth_mode = (os.getenv('AUTH_MODE') or '').lower()
+        storage_state = None if auth_mode == 'cookies' else (str(self.storage_state) if self.storage_state.exists() else None)
 
         self.context = await self.browser.new_context(
-            storage_state=str(self.storage_state),
+            storage_state=storage_state,
             viewport={"width": 1920, "height": 1080},
-            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
         )
+
+        if auth_mode == 'cookies':
+            for p in [
+                Path("auth_data/x_cookies.json"),
+                Path("chrome_profiles/cookies/default_cookies.json"),
+                Path("config/profiles/4botbsc/storageState.json"),
+                Path("auth/4botbsc/storageState.json"),
+            ]:
+                if p.exists():
+                    try:
+                        import json
+                        data = json.loads(p.read_text())
+                        raw = data.get('cookies') if isinstance(data, dict) else data
+                        cookies = []
+                        for c in (raw or []):
+                            if not isinstance(c, dict):
+                                continue
+                            name = c.get('name'); value = c.get('value')
+                            if not name or value is None:
+                                continue
+                            base = {
+                                'name': name,
+                                'value': value,
+                                'path': c.get('path') or '/',
+                                'secure': True if c.get('secure') is not False else False,
+                                'httpOnly': True if c.get('httpOnly') else False,
+                                'sameSite': c.get('sameSite') or 'Lax',
+                                'expires': c.get('expires') or 0,
+                            }
+                            dom = c.get('domain') or ''
+                            variants = []
+                            if dom:
+                                variants.append({**base, 'domain': dom})
+                                if 'twitter.com' in dom and 'x.com' not in dom:
+                                    variants.append({**base, 'domain': dom.replace('twitter.com','x.com')})
+                            else:
+                                variants.append({**base, 'url': 'https://x.com'})
+                            if not any((v.get('domain') or '').endswith('x.com') for v in variants):
+                                variants.append({**base, 'domain': '.x.com'})
+                            cookies.extend(variants)
+                        # Dedup
+                        uniq = {}
+                        for c in cookies:
+                            key = (c['name'], c.get('domain') or c.get('url',''), c.get('path','/'))
+                            uniq[key] = c
+                        norm = list(uniq.values())
+                        if norm:
+                            await self.context.add_cookies(norm)
+                            break
+                    except Exception:
+                        pass
 
         self.page = await self.context.new_page()
         logger.info("✅ Browser ready for notification monitoring")

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Monitor @4botbsc mentions and auto-reply."""
+"""Monitor @4botbsc mentions and auto-reply (Safari/WebKit headless, ephemeral in-memory)."""
 import asyncio
 import json
 from pathlib import Path
 from datetime import datetime
+from typing import List, Dict, Any
 from playwright.async_api import async_playwright
 
 class MentionMonitor:
@@ -11,6 +12,17 @@ class MentionMonitor:
         self.storage_path = Path("/Users/doctordre/projects/4bot/auth/4botbsc/storageState.json")
         self.replied_tweets_file = Path("/Users/doctordre/projects/4bot/replied_mentions.json")
         self.replied_tweets = self._load_replied_tweets()
+
+    def _load_cookies(self) -> List[Dict[str, Any]]:
+        """Load X/Twitter cookies from storage state for in-memory ephemeral auth."""
+        try:
+            if self.storage_path.exists():
+                data = json.loads(self.storage_path.read_text())
+                if isinstance(data, dict) and "cookies" in data:
+                    return data.get("cookies", [])
+        except Exception as e:
+            print(f"⚠️  Cookie load warning: {e}")
+        return []
 
     def _load_replied_tweets(self):
         """Load list of tweets we've already replied to."""
@@ -26,14 +38,25 @@ class MentionMonitor:
             json.dump(list(self.replied_tweets), f, indent=2)
 
     async def check_mentions(self):
-        """Check for new @4botbsc mentions."""
+        """Check for new @4botbsc mentions using ephemeral in-memory context."""
         print(f"\n{'='*70}")
         print(f"🔍 Checking mentions at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"{'='*70}")
 
+        cookies = self._load_cookies()
+
         async with async_playwright() as p:
+            # Ephemeral Safari/WebKit headless browser (in-memory)
             browser = await p.webkit.launch(headless=True)
-            context = await browser.new_context(storage_state=str(self.storage_path))
+            context = await browser.new_context(
+                viewport={"width": 1440, "height": 900},
+                user_agent=(
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) "
+                    "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
+                ),
+            )
+            if cookies:
+                await context.add_cookies(cookies)
             page = await context.new_page()
 
             # Go to notifications page
@@ -80,7 +103,7 @@ class MentionMonitor:
                 return []
 
     async def reply_to_mention(self, tweet_id: str, tweet_url: str):
-        """Reply to a specific mention."""
+        """Reply to a specific mention using ephemeral in-memory context."""
         print(f"\n{'─'*70}")
         print(f"💬 Replying to tweet: {tweet_id}")
         print(f"🔗 URL: {tweet_url}")
@@ -97,9 +120,20 @@ class MentionMonitor:
         import random
         response = random.choice(responses)
 
+        cookies = self._load_cookies()
+
         async with async_playwright() as p:
+            # Fresh ephemeral Safari/WebKit headless context per reply (in-memory)
             browser = await p.webkit.launch(headless=True)
-            context = await browser.new_context(storage_state=str(self.storage_path))
+            context = await browser.new_context(
+                viewport={"width": 1440, "height": 900},
+                user_agent=(
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) "
+                    "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
+                ),
+            )
+            if cookies:
+                await context.add_cookies(cookies)
             page = await context.new_page()
 
             try:

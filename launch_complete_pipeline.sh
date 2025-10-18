@@ -6,6 +6,10 @@
 SCRIPT_DIR="/Users/doctordre/projects/4bot"
 LOG_DIR="$SCRIPT_DIR/logs"
 
+# Defaults for Safari headless in-memory mode unless overridden by env
+export BROWSER_NAME="${BROWSER_NAME:-webkit}"
+export AUTH_MODE="${AUTH_MODE:-cookies}"
+
 echo "╔══════════════════════════════════════════════════════════════╗"
 echo "║          COMPLETE CZ PIPELINE LAUNCHER                        ║"
 echo "║                                                               ║"
