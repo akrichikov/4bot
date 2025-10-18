@@ -4,14 +4,19 @@ import html
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Iterable
+from typing import Any, Dict, Iterable, Optional
 
 
 def _badge(ok: bool) -> str:
     return f"<span style='padding:2px 8px;border-radius:12px;color:#fff;background:{'#0a0' if ok else '#a00'}'>{'OK' if ok else 'FAIL'}</span>"
 
 
-def write_system_health_html(report: Dict[str, Any], out_path: Path) -> Path:
+def write_system_health_html(
+    report: Dict[str, Any],
+    out_path: Path,
+    guard: Optional[Dict[str, Any]] = None,
+    sched: Optional[Dict[str, Any]] = None,
+) -> Path:
     parts: list[str] = []
     parts.append("<html><head><meta charset='utf-8'><title>System Health</title>")
     parts.append(
@@ -61,6 +66,29 @@ def write_system_health_html(report: Dict[str, Any], out_path: Path) -> Path:
     if r.get("error"):
         parts.append(f"<div style='color:#a00'>Error: {html.escape(str(r.get('error')))}</div>")
     parts.append("</div>")
+
+    # Guardrails (optional)
+    if guard:
+        parts.append("<div class='card'>")
+        parts.append("<h2>Guardrails</h2>")
+        summ = (guard.get("summary") or {})
+        p = int(summ.get("PASS", 0)); e = int(summ.get("EDIT", 0)); b = int(summ.get("BLOCK", 0))
+        parts.append(f"<div>PASS: <strong>{p}</strong> &nbsp; EDIT: <strong>{e}</strong> &nbsp; BLOCK: <strong>{b}</strong></div>")
+        parts.append("</div>")
+
+    # Scheduler (optional)
+    if sched:
+        parts.append("<div class='card'>")
+        parts.append("<h2>Scheduler</h2>")
+        counts = (sched.get("counts") or sched.get("processed") or {})
+        if counts:
+            parts.append("<ul>")
+            for name in sorted(counts.keys()):
+                parts.append(f"<li>{html.escape(str(name))}: <strong>{int(counts[name])}</strong></li>")
+            parts.append("</ul>")
+        else:
+            parts.append("<div>No scheduler results found.</div>")
+        parts.append("</div>")
 
     # Raw JSON
     parts.append("<div class='card'>")

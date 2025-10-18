@@ -25,7 +25,8 @@ except Exception:
     _sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
 
 from playwright.async_api import async_playwright, Page, Browser
-from xbot.cookies import load_cookie_json, merge_into_storage
+from xbot.cookies import merge_into_storage, load_cookies_best_effort
+from xbot.profiles import storage_state_path
 from xbot.vterm import VTerm
 from xbot.rabbitmq_manager import RabbitMQManager, BotMessage
 
@@ -187,8 +188,8 @@ class CZAutonomousSystem:
         self.tweets_posted = 0
         self.replies_sent = 0
         self.last_tweet_time = None
-        self.cookies_path = "auth_data/x_cookies.json"
-        self.storage_state_path = "config/profiles/4botbsc/storageState.json"
+        self.profile = os.environ.get("PROFILE", "4botbsc")
+        self.storage_state_path = str(storage_state_path(self.profile))
 
         logger.info("🤖 CZ Autonomous System Initializing...")
         logger.info("📍 Operating from: https://4bot.fun/")

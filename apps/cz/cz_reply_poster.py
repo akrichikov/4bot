@@ -13,7 +13,11 @@ from playwright.async_api import async_playwright, Page
 from xbot.rabbitmq_manager import RabbitMQManager, BotMessage
 from xbot.cookies import load_cookies_best_effort
 from xbot.config import Config
+from xbot.safety import guardrail
 from xbot.profiles import storage_state_path
+from xbot.ratelimit import RateLimiter
+from xbot.utils import LRUSet
+import hashlib
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,6 +38,8 @@ class ReplyPoster:
         self.replies_posted = 0
         self.replies_failed = 0
         self.executor = ThreadPoolExecutor(max_workers=1)
+        self.rate = RateLimiter(cfg.rate_min_s, cfg.rate_max_s, cfg.rate_enabled)
+        self.idempotency = LRUSet(capacity=cfg.idempotency_lru_size) if cfg.idempotency_enabled else None
 
     async def setup_browser(self):
         """Initialize browser (one persistent browser, ephemeral contexts per reply)"""
@@ -144,7 +150,22 @@ class ReplyPoster:
 
             await reply_box.click()
             await page.wait_for_timeout(300)
-            await page.keyboard.type(reply_text, delay=20)
+            # Guardrail the reply text before typing
+            decision, safe_text = guardrail(reply_text, {"url": tweet_url})
+            if decision == "BLOCK":
+                logger.warning("🚫 Guardrail blocked reply; skipping")
+                return False
+            if decision == "EDIT":
+                reply_text = safe_text
+            # Idempotency guard (process-local)
+            if self.idempotency is not None:
+                key = hashlib.sha256(f"{tweet_url}|{reply_text}".encode("utf-8")).hexdigest()
+                if not self.idempotency.add(key):
+                    logger.warning("🛑 Duplicate reply detected by idempotency guard; skipping")
+                    return False
+            # Rate limit pacing before typing
+            await self.rate.wait("reply")
+                await page.keyboard.type(reply_text, delay=20)
             await page.wait_for_timeout(600)
             logger.info("✓ Typed reply")
 
@@ -209,54 +230,11 @@ class ReplyPoster:
                 )
 
                 if auth_mode == 'cookies':
-                    import json as _json
-                    cookies = []
-                    for p in [
-                        Path("auth_data/x_cookies.json"),
-                        Path("chrome_profiles/cookies/default_cookies.json"),
-                        Path("config/profiles/4botbsc/storageState.json"),
-                        Path("auth/4botbsc/storageState.json"),
-                    ]:
-                        if p.exists():
-                            try:
-                                data = _json.loads(p.read_text())
-                                raw = data.get('cookies') if isinstance(data, dict) else data
-                                for c in (raw or []):
-                                    if not isinstance(c, dict):
-                                        continue
-                                    name = c.get('name'); value = c.get('value')
-                                    if not name or value is None:
-                                        continue
-                                    base = {
-                                        'name': name,
-                                        'value': value,
-                                        'path': c.get('path') or '/',
-                                        'secure': True if c.get('secure') is not False else False,
-                                        'httpOnly': True if c.get('httpOnly') else False,
-                                        'sameSite': c.get('sameSite') or 'Lax',
-                                        'expires': c.get('expires') or 0,
-                                    }
-                                    dom = c.get('domain') or ''
-                                    variants = []
-                                    if dom:
-                                        variants.append({**base, 'domain': dom})
-                                        if 'twitter.com' in dom and 'x.com' not in dom:
-                                            variants.append({**base, 'domain': dom.replace('twitter.com','x.com')})
-                                    else:
-                                        variants.append({**base, 'url': 'https://x.com'})
-                                    if not any((v.get('domain') or '').endswith('x.com') for v in variants):
-                                        variants.append({**base, 'domain': '.x.com'})
-                                    cookies.extend(variants)
-                            except Exception:
-                                pass
-                    # Deduplicate and add
-                    uniq = {}
-                    for c in cookies:
-                        key = (c['name'], c.get('domain') or c.get('url',''), c.get('path','/'))
-                        uniq[key] = c
-                    norm = list(uniq.values())
-                    if norm:
-                        await ctx.add_cookies(norm)
+                    from xbot.cookies import load_cookies_best_effort
+                    cfg = Config.from_env()
+                    cookies = load_cookies_best_effort(profile=cfg.profile_name)
+                    if cookies:
+                        await ctx.add_cookies(cookies)
 
                 page = await ctx.new_page()
                 await page.goto(tweet_url, wait_until="domcontentloaded", timeout=30000)

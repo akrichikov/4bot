@@ -12,6 +12,7 @@ import re
 import json
 import time
 from pathlib import Path
+from xbot.profiles import storage_state_path
 from typing import List
 import logging
 from typing import Any as _Moved
@@ -39,7 +40,7 @@ class CZSuccessRangeReply:
     def __init__(self):
         self.browser = None
         self.page = None
-        self.storage_state_path = "config/profiles/4botbsc/storageState.json"
+        self.storage_state_path = str(storage_state_path("4botbsc"))
         self.tweet_file = "Docs/4Bot Tweets.md"
         self.success_count = 0
         self.fail_count = 0

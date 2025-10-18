@@ -10,6 +10,7 @@ import sys
 import os
 from datetime import datetime
 from pathlib import Path
+from xbot.profiles import storage_state_path
 from typing import List
 import logging
 from typing import Any as _Moved
@@ -94,7 +95,7 @@ class CZTweetPoster:
         self.page = None
         self.tweet_generator = CZTweetGenerator()
         self.cookies_path = "auth_data/x_cookies.json"
-        self.storage_state_path = "config/profiles/4botbsc/storageState.json"
+        self.storage_state_path = str(storage_state_path("4botbsc"))
 
     async def setup_browser(self):
         """Setup browser with authenticated session"""

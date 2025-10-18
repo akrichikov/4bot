@@ -2,13 +2,14 @@
 import asyncio
 from typing import Any as _Moved
 from pathlib import Path
+from xbot.profiles import storage_state_path
 import sys
 
 from playwright.async_api import async_playwright
 
 STATUS_URL = sys.argv[1] if len(sys.argv) > 1 else ""
 PROFILE = "4botbsc"
-STORAGE = Path("config/profiles/4botbsc/storageState.json").resolve()
+STORAGE = storage_state_path("4botbsc").resolve()
 
 
 async def main():

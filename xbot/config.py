@@ -51,6 +51,9 @@ class Config(BaseModel):
     rate_min_s: float = Field(default=1.0)
     rate_max_s: float = Field(default=3.0)
     rate_enabled: bool = Field(default=True)
+    # Idempotency (process-local LRU)
+    idempotency_enabled: bool = Field(default=True)
+    idempotency_lru_size: int = Field(default=1024)
 
     # Media constraints
     media_max_bytes: int = Field(default=50 * 1024 * 1024)
@@ -152,6 +155,8 @@ class Config(BaseModel):
             rate_min_s=float(getenv("RATE_MIN_S", "1.0")),
             rate_max_s=float(getenv("RATE_MAX_S", "3.0")),
             rate_enabled=_parse_bool(getenv("RATE_ENABLED", "true")),
+            idempotency_enabled=_parse_bool(getenv("IDEMPOTENCY_ENABLED", "true")),
+            idempotency_lru_size=int(getenv("IDEMPOTENCY_LRU_SIZE", "1024")),
             media_max_bytes=int(getenv("MEDIA_MAX_BYTES", str(50 * 1024 * 1024))),
             media_allow_images=_parse_bool(getenv("MEDIA_ALLOW_IMAGES", "true")),
             media_allow_video=_parse_bool(getenv("MEDIA_ALLOW_VIDEO", "true")),

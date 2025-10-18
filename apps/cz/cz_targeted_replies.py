@@ -24,6 +24,10 @@ except Exception:
 
 from playwright.async_api import async_playwright, Page
 from xbot.cookies import merge_into_storage, load_cookies_best_effort
+from xbot.config import Config
+from xbot.ratelimit import RateLimiter
+from xbot.utils import LRUSet
+import hashlib
 from xbot.profiles import storage_state_path
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
@@ -40,6 +44,9 @@ class CZTargetedReplyBot:
         self.storage_state_path = str(storage_state_path(self.profile))
         self.replied_count = 0
         self.failed_count = 0
+        cfg = Config.from_env()
+        self.rate = RateLimiter(cfg.rate_min_s, cfg.rate_max_s, cfg.rate_enabled)
+        self.idempotency = LRUSet(capacity=cfg.idempotency_lru_size) if cfg.idempotency_enabled else None
 
         # Parse the tweet URLs from the file
         self.tweet_urls = self.parse_tweet_file()
@@ -184,6 +191,20 @@ class CZTargetedReplyBot:
                     timeout=5000
                 )
                 await reply_box.click()
+                from xbot.safety import guardrail as _guard
+                decision, safe_text = _guard(response, {"url": url})
+                if decision == "BLOCK":
+                    logger.warning("🚫 Guardrail blocked reply; skipping")
+                    return False
+                if decision == "EDIT":
+                    response = safe_text
+                # Idempotency guard (process-local)
+                if self.idempotency is not None:
+                    key = hashlib.sha256(f"{url}|{response}".encode("utf-8")).hexdigest()
+                    if not self.idempotency.add(key):
+                        logger.warning("🛑 Duplicate reply detected by idempotency guard; skipping")
+                        return False
+                await self.rate.wait("reply")
                 await self.page.keyboard.type(response, delay=50)
                 await asyncio.sleep(1)
 

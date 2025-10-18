@@ -29,7 +29,8 @@ from xbot.rabbitmq_manager import RabbitMQManager, BotMessage, NotificationPubli
 from xbot.vterm import VTerm, VTermResult
 from xbot.config import Config
 from xbot.browser import Browser as XBotBrowser
-from xbot.cookies import load_cookie_json, merge_into_storage
+from xbot.cookies import merge_into_storage, load_cookies_best_effort
+from xbot.profiles import storage_state_path
 
 # Configure logging
 logging.basicConfig(
@@ -50,7 +51,7 @@ class BotConfig:
     max_replies_per_hour: int = 10
     cz_prompt_path: str = "CLAUDE.md"
     cookies_path: str = "auth_data/x_cookies.json"
-    storage_state_path: str = "config/profiles/4botbsc/storageState.json"
+    storage_state_path: str = str(storage_state_path("4botbsc"))
     user_data_dir: str = ".x-user/4botbsc"
 
 

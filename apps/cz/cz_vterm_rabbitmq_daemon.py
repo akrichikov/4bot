@@ -33,6 +33,7 @@ from xbot.config import Config
 from xbot.browser import Browser
 from xbot.flows.login import login_if_needed
 from xbot.cookies import load_cookie_json, merge_into_storage
+from xbot.profiles import storage_state_path
 from playwright.async_api import Page, BrowserContext, async_playwright
 from xbot.rabbitmq_manager import RabbitMQManager, BotMessage
 from dotenv import load_dotenv
@@ -91,7 +92,7 @@ class TabManager:
             logger.info(f"✅ Loaded {len(self.cookies)} cookies for tab management")
 
         # Load storage state if exists
-        storage_path = Path("config/profiles/4botbsc/storageState.json")
+        storage_path = storage_state_path("4botbsc")
         auth_mode = (os.getenv('AUTH_MODE') or '').lower()
         if auth_mode == 'cookies':
             self.auth_state = None

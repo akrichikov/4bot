@@ -15,6 +15,8 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+import os
+from xbot.profiles import storage_state_path
 from typing import List, Set
 
 try:
@@ -179,7 +181,8 @@ class HeadlessBatchReplier:
         # Setup authentication
         from xbot.profiles import profile_paths
         # Prefer config/profiles path if present
-        cfg_storage = Path("config/profiles/4botbsc/storageState.json")
+        profile = os.environ.get("PROFILE", "4botbsc")
+        cfg_storage = storage_state_path(profile)
         if cfg_storage.exists():
             self.config.storage_state = cfg_storage
             self.config.user_data_dir = Path(".x-user/4botbsc")

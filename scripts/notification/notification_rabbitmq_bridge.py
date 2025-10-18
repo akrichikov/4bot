@@ -48,12 +48,11 @@ class NotificationRabbitMQBridge:
             border_style="cyan"
         ))
 
-        # Prefer Playwright storageState for a logged-in session; fall back to cookies JSON
-        storage_state = None
-        for p in [Path("config/profiles/4botbsc/storageState.json"), Path("auth/4botbsc/storageState.json")]:
-            if p.exists():
-                storage_state = str(p)
-                break
+        # Prefer Playwright storageState from helper; fall back to cookie JSON
+        from xbot.profiles import storage_state_path
+        profile = os.getenv('PROFILE', '4botbsc')
+        sp = storage_state_path(profile)
+        storage_state = str(sp) if sp.exists() else None
         cookies = []
         cookie_file = Path("chrome_profiles/cookies/default_cookies.json")
         if not storage_state and cookie_file.exists():

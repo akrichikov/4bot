@@ -23,12 +23,18 @@ else:
 
 # Get cookie counts
 try:
-    auth_cookies = len(json.loads(Path("auth/4botbsc/storageState.json").read_text())['cookies'])
+    from xbot.profiles import storage_state_path
+    sp_auth = Path("auth/4botbsc/storageState.json")
+    if not sp_auth.exists():
+        sp_auth = storage_state_path("4botbsc", prefer_config_dir=False)
+    auth_cookies = len(json.loads(sp_auth.read_text())['cookies']) if sp_auth.exists() else "N/A"
 except:
     auth_cookies = "N/A"
 
 try:
-    config_cookies = len(json.loads(Path("config/profiles/4botbsc/storageState.json").read_text())['cookies'])
+    from xbot.profiles import storage_state_path
+    sp = storage_state_path("4botbsc")
+    config_cookies = len(json.loads(sp.read_text())['cookies']) if sp.exists() else "N/A"
 except:
     config_cookies = "N/A"
 
@@ -92,7 +98,7 @@ The @4botbsc mention monitoring system is fully operational with ephemeral Safar
 
 **Storage Locations:**
 - Primary: `auth/4botbsc/storageState.json` ({auth_cookies} cookies)
-- Secondary: `config/profiles/4botbsc/storageState.json` ({config_cookies} cookies)
+- Secondary: `config/profiles/<profile>/storageState.json` ({config_cookies} cookies)
 
 **Status:** ✅ Valid authentication tokens loaded
 

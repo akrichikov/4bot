@@ -41,6 +41,7 @@ play_app = typer.Typer(no_args_is_help=True, add_completion=False)
 health_app = typer.Typer(no_args_is_help=True, add_completion=False)
 schedule_app = typer.Typer(no_args_is_help=True, add_completion=False)
 report_app = typer.Typer(no_args_is_help=True, add_completion=False)
+mq_app = typer.Typer(no_args_is_help=True, add_completion=False)
 profile_app = typer.Typer(no_args_is_help=True, add_completion=False)
 app.add_typer(cookies_app, name="cookies", help="Import/export storage state")
 app.add_typer(session_app, name="session", help="Session utilities")
@@ -49,6 +50,7 @@ app.add_typer(health_app, name="health", help="Health checks and diagnostics")
 app.add_typer(schedule_app, name="schedule", help="Schedule playbooks by times-of-day")
 app.add_typer(report_app, name="report", help="Summaries and exports for results")
 app.add_typer(profile_app, name="profile", help="Manage named profiles (sessions)")
+app.add_typer(mq_app, name="mq", help="RabbitMQ utilities")
 vterm_app = typer.Typer(no_args_is_help=True, add_completion=False)
 app.add_typer(vterm_app, name="vterm", help="In-memory PTY virtual terminal")
 queue_app = typer.Typer(no_args_is_help=True, add_completion=False)
@@ -56,6 +58,127 @@ vterm_app.add_typer(queue_app, name="queue", help="HTTP queue operations (requir
 vtermd_app = typer.Typer(no_args_is_help=True, add_completion=False)
 results_app = typer.Typer(no_args_is_help=True, add_completion=False)
 app.add_typer(results_app, name="results", help="Inspect raw results index")
+
+# ---------------- Scheduler Simulation ----------------
+
+def _parse_profiles_spec(spec: str):
+    out = []
+    for part in (spec or '').split(';'):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            name, rps, burst = part.split(':', 2)
+            out.append((name.strip(), float(rps), int(burst)))
+        except Exception:
+            raise typer.BadParameter(f"Invalid profile spec: {part}")
+    if not out:
+        raise typer.BadParameter("No profiles parsed from --profiles")
+    return out
+
+
+def _parse_quiet_spec(spec: str):
+    quiet = {}
+    if not spec:
+        return quiet
+    for seg in spec.split(','):
+        seg = seg.strip()
+        if not seg:
+            continue
+        try:
+            name, range_ = seg.split('=', 1)
+            start, end = range_.split('-', 1)
+            quiet[name.strip()] = (start.strip(), end.strip())
+        except Exception:
+            raise typer.BadParameter(f"Invalid quiet spec: {seg}")
+    return quiet
+
+
+@schedule_app.command("simulate")
+def schedule_simulate(
+    profiles: str = typer.Option(..., help="Profiles spec: name:rps:burst;name2:rps:burst"),
+    seconds: int = typer.Option(10, help="Simulation duration seconds"),
+    dt_ms: int = typer.Option(100, help="Time step in milliseconds"),
+    quiet: str = typer.Option('', help="Quiet windows: name=HH:MM-HH:MM,..."),
+    json_out: Optional[Path] = typer.Option(None, help="Write JSON output to this path"),
+) -> None:
+    from .scheduler_fair import Policy, ProfileScheduler
+    from datetime import datetime, timedelta
+
+    profs = _parse_profiles_spec(profiles)
+    quiet_map = _parse_quiet_spec(quiet)
+    pols = []
+    for name, rps, burst in profs:
+        qs = quiet_map.get(name, (None, None))
+        pols.append(Policy(name=name, rps=rps, burst=burst, quiet_start=qs[0], quiet_end=qs[1]))
+    sch = ProfileScheduler(pols)
+    counts = {name: 0 for name, _, _ in profs}
+    now = datetime(2025, 1, 1, 12, 0, 0)
+    end = now + timedelta(seconds=seconds)
+    cur = now
+    step = timedelta(milliseconds=max(1, dt_ms))
+    while cur < end:
+        name = sch.pick_next_ready(cur)
+        if name:
+            sch.record(name, cur)
+            counts[name] += 1
+        cur += step
+    out = {"profiles": profiles, "seconds": seconds, "dt_ms": dt_ms, "quiet": quiet, "counts": counts}
+    if json_out:
+        json_out.parent.mkdir(parents=True, exist_ok=True)
+        json_out.write_text(json.dumps(out, indent=2), encoding='utf-8')
+        print(f"[green]Wrote[/green] {json_out}\n{json.dumps(out, indent=2)}")
+    else:
+        print(json.dumps(out, indent=2))
+
+
+def _parse_items_spec(spec: str):
+    # Format: name=count;name2=count
+    out = []
+    if not spec:
+        return out
+    for part in spec.split(';'):
+        p = part.strip()
+        if not p:
+            continue
+        try:
+            name, cnt = p.split('=', 1)
+            out.append((name.strip(), int(cnt)))
+        except Exception:
+            raise typer.BadParameter(f"Invalid items spec segment: {p}")
+    return out
+
+
+@schedule_app.command("run-sim")
+def schedule_run_sim(
+    profiles: str = typer.Option(..., help="Profiles spec: name:rps:burst;name2:rps:burst"),
+    items: str = typer.Option(..., help="Items spec: name=count;name2=count"),
+    seconds: int = typer.Option(30, help="Simulation duration seconds"),
+    dt_ms: int = typer.Option(50, help="Time step in milliseconds"),
+    quiet: str = typer.Option('', help="Quiet windows: name=HH:MM-HH:MM,..."),
+    json_out: Optional[Path] = typer.Option(None, help="Write JSON output to this path"),
+) -> None:
+    from .scheduler_fair import Policy
+    from .orchestrator_sim import run_sim, WorkSpec
+
+    profs = _parse_profiles_spec(profiles)
+    quiet_map = _parse_quiet_spec(quiet)
+    pols = []
+    for name, rps, burst in profs:
+        qs = quiet_map.get(name, (None, None))
+        pols.append(Policy(name=name, rps=rps, burst=burst, quiet_start=qs[0], quiet_end=qs[1]))
+    its = _parse_items_spec(items)
+    if not its:
+        raise typer.BadParameter("No items parsed from --items")
+    works = [WorkSpec(name=n, count=c) for n, c in its]
+    counts = run_sim(pols, works, seconds=seconds, dt_ms=dt_ms, quiet=quiet_map)
+    out = {"profiles": profiles, "items": items, "seconds": seconds, "dt_ms": dt_ms, "quiet": quiet, "processed": counts}
+    if json_out:
+        json_out.parent.mkdir(parents=True, exist_ok=True)
+        json_out.write_text(json.dumps(out, indent=2), encoding='utf-8')
+        print(f"[green]Wrote[/green] {json_out}\n{json.dumps(out, indent=2)}")
+    else:
+        print(json.dumps(out, indent=2))
 
 @report_app.command("repo-layout")
 def report_repo_layout(
@@ -65,6 +188,30 @@ def report_repo_layout(
     from .repo_report import write_repo_layout_md
     path = write_repo_layout_md(out, Path("."), max_depth=depth)
     print(f"[green]Wrote[/green] {path}")
+
+
+@report_app.command("aggregate-status")
+def report_aggregate_status(
+    out: Path = typer.Option(Path("Docs/status/status_summary.json"), "--out", help="Output JSON path"),
+    health_json: Optional[Path] = typer.Option(Path("Docs/status/system_health.json"), help="System health JSON (optional)"),
+    guard_json: Optional[Path] = typer.Option(Path("Docs/status/guardrail_eval.json"), help="Guardrail JSON (optional)"),
+    sched_json: Optional[Path] = typer.Option(Path("Docs/status/scheduler_sim.json"), help="Scheduler simulation JSON (optional)"),
+) -> None:
+    from .report_aggregate import aggregate_status
+    def _read(p: Optional[Path]):
+        if p and p.exists():
+            try:
+                return json.loads(p.read_text())
+            except Exception:
+                return None
+        return None
+    h = _read(health_json)
+    g = _read(guard_json)
+    s = _read(sched_json)
+    rep = aggregate_status(h, g, s)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(rep, ensure_ascii=False, indent=2), encoding='utf-8')
+    print(f"[green]Wrote[/green] {out}\n{json.dumps(rep, indent=2)}")
 
 
 def _cfg(
@@ -1043,6 +1190,8 @@ def health_system_html_cmd(
     out_html: Path = typer.Option(Path("Docs/status/system_health.html"), help="HTML output path"),
     out_json: Optional[Path] = typer.Option(Path("Docs/status/system_health.json"), help="Optional JSON output path"),
     vterm_http_base: Optional[str] = typer.Option(None, help="Override VTerm HTTP base URL"),
+    guard_json: Optional[Path] = typer.Option(Path("Docs/status/guardrail_eval.json"), help="Optional guardrail JSON to include when present"),
+    sched_json: Optional[Path] = typer.Option(Path("Docs/status/scheduler_run.json"), help="Optional scheduler JSON to include when present (fallback to scheduler_sim.json)"),
 ) -> None:
     cfg = Config.from_env()
     report = asyncio.run(health_system(cfg, vterm_http_base=vterm_http_base))
@@ -1050,7 +1199,24 @@ def health_system_html_cmd(
         out_json.parent.mkdir(parents=True, exist_ok=True)
         out_json.write_text(json.dumps(report, indent=2))
         print(f"[green]Wrote {out_json}[/green]")
-    path = write_system_health_html(report, out_html)
+    guard = None
+    try:
+        if guard_json and guard_json.exists():
+            guard = json.loads(guard_json.read_text())
+    except Exception:
+        guard = None
+    sched = None
+    try:
+        target = sched_json
+        if target and not target.exists():
+            alt = Path("Docs/status/scheduler_sim.json")
+            if alt.exists():
+                target = alt
+        if target and target.exists():
+            sched = json.loads(target.read_text())
+    except Exception:
+        sched = None
+    path = write_system_health_html(report, out_html, guard=guard, sched=sched)
     print(f"[green]Wrote {path}[/green]")
 
 
@@ -1060,6 +1226,39 @@ def health_status_index_cmd(
 ) -> None:
     idx = write_status_index(out_dir)
     print(f"[green]Wrote {idx}[/green]")
+
+
+@mq_app.command("check-topology")
+def mq_check_topology(strict: bool = typer.Option(False, help="Exit non-zero when topology check fails")) -> None:
+    from .rabbitmq_manager import RabbitMQManager
+    m = RabbitMQManager()
+    ok = m.connect_with_retries(max_attempts=3, backoff_s=1.0)
+    if not ok:
+        res = {"ok": False, "error": "connect_failed"}
+        print(json.dumps(res, indent=2))
+        if strict:
+            raise typer.Exit(code=1)
+        return
+    res = m.check_topology()
+    print(json.dumps(res, indent=2))
+    if strict and not res.get("ok"):
+        raise typer.Exit(code=1)
+
+
+@health_app.command("safety-eval")
+def health_safety_eval(
+    in_file: Path = typer.Option(..., "--in", help="Input text file; one reply per line"),
+    json_out: Path = typer.Option(Path("Docs/status/guardrail_eval.json"), "--json-out", help="Where to write JSON report"),
+) -> None:
+    from .safety import evaluate_list
+    if not in_file.exists():
+        print(f"[red]Input file not found:[/red] {in_file}")
+        raise typer.Exit(code=2)
+    lines = in_file.read_text(encoding="utf-8").splitlines()
+    report = evaluate_list(lines)
+    json_out.parent.mkdir(parents=True, exist_ok=True)
+    json_out.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"[green]Wrote[/green] {json_out}")
 
 
 @health_app.command("snapshot")

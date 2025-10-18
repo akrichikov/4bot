@@ -4,6 +4,8 @@ import asyncio
 from typing import Any as _Moved
 import json
 from pathlib import Path
+import os
+from xbot.profiles import storage_state_path
 from typing import List, Dict, Any
 from playwright.async_api import async_playwright
 
@@ -67,7 +69,8 @@ async def reply_to_tweet(tweet_url: str, response_text: str) -> bool:
     print(f"💬 Response: {response_text}")
 
     cookies = _normalize_cookies(load_cookies_best_effort(profile="4botbsc"))
-    storage_state_path = Path("config/profiles/4botbsc/storageState.json")
+    profile = os.environ.get("PROFILE", "4botbsc")
+    storage_state_path = storage_state_path(profile)
 
     async with async_playwright() as p:
         # Safari/WebKit headless in-memory session

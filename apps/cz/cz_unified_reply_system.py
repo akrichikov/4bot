@@ -25,7 +25,8 @@ except Exception:
     _sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
 
 from playwright.async_api import async_playwright, Page, Browser, ElementHandle
-from xbot.cookies import load_cookie_json, merge_into_storage
+from xbot.cookies import merge_into_storage, load_cookies_best_effort
+from xbot.profiles import storage_state_path
 
 # Configure logging
 logging.basicConfig(
@@ -41,12 +42,9 @@ class ReplyConfig:
     mode: str = "targeted"  # targeted|batch|mass|auto
     headless: bool = True
     cookies_path: str = "auth_data/x_cookies.json"
-    alt_cookies_paths: List[str] = field(default_factory=lambda: [
-        "chrome_profiles/cookies/default_cookies.json",
-        "auth/4botbsc/storageState.json",
-        "auth/Profile 13/storageState.json",
-    ])
-    storage_state_path: str = "config/profiles/4botbsc/storageState.json"
+    alt_cookies_paths: List[str] = field(default_factory=list)
+    from xbot.profiles import storage_state_path as _ssp
+    storage_state_path: str = str(_ssp("4botbsc"))
     tweet_file_path: str = "Docs/4Bot Tweets.md"
     our_handle: str = "4botbsc"
 
@@ -288,32 +286,12 @@ class CZUnifiedReplySystem:
         # Merge cookies/tokens from known sources into storage state before launch
         try:
             merged = 0
-            # Primary cookie JSON
-            p = Path(self.config.cookies_path)
-            if p.exists():
-                logger.info(f"🔑 Merging cookies from {p}")
-                merged += merge_into_storage(Path(self.config.storage_state_path), load_cookie_json(p), [
-                    "x.com", ".x.com", "twitter.com", ".twitter.com"
+            # Best-effort cookie loading via helper (merges common sources)
+            cookies = load_cookies_best_effort(profile=self.config.our_handle)
+            if cookies:
+                merged += merge_into_storage(Path(self.config.storage_state_path), cookies, [
+                    ".x.com", "x.com", ".twitter.com", "twitter.com"
                 ])
-            # Alternate sources
-            for alt in self.config.alt_cookies_paths:
-                ap = Path(alt)
-                if not ap.exists():
-                    continue
-                try:
-                    if ap.suffix.lower() == ".json":
-                        logger.info(f"🔑 Merging alt cookies from {ap}")
-                        merged += merge_into_storage(Path(self.config.storage_state_path), load_cookie_json(ap), [
-                            "x.com", ".x.com", "twitter.com", ".twitter.com"
-                        ])
-                    else:
-                        # storageState.json (playwright format) still read by load_cookie_json -> ignores origins
-                        logger.info(f"🔑 Merging storageState cookies from {ap}")
-                        merged += merge_into_storage(Path(self.config.storage_state_path), load_cookie_json(ap), [
-                            "x.com", ".x.com", "twitter.com", ".twitter.com"
-                        ])
-                except Exception as e:
-                    logger.debug(f"Skip {ap}: {e}")
             if merged:
                 logger.info(f"✅ Merged {merged} cookies into storage state")
         except Exception as e:

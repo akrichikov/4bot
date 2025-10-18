@@ -29,7 +29,8 @@ from xbot.config import Config
 from xbot.browser import Browser
 from xbot.flows.login import login_if_needed
 from xbot.facade import XBot
-from xbot.cookies import load_cookie_json, merge_into_storage
+from xbot.cookies import merge_into_storage, load_cookies_best_effort
+from xbot.profiles import storage_state_path
 from playwright.async_api import Page
 from xbot.rabbitmq_manager import RabbitMQManager, BotMessage
 from vterm_cz_integration import CZPersonaVTerm
@@ -306,7 +307,8 @@ class CZNotificationDaemon:
         """Setup headless browser with authentication"""
         # Setup authentication
         from xbot.profiles import profile_paths
-        cfg_storage = Path("config/profiles/4botbsc/storageState.json")
+        from xbot.profiles import storage_state_path
+        cfg_storage = storage_state_path("4botbsc")
         if cfg_storage.exists():
             self.config.storage_state = cfg_storage
             self.config.user_data_dir = Path(".x-user/4botbsc")

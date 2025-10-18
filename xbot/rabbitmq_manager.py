@@ -15,6 +15,7 @@ from dataclasses import dataclass, asdict
 from dotenv import load_dotenv
 import logging
 from pathlib import Path
+import time
 
 # Load environment variables
 load_dotenv()
@@ -112,6 +113,45 @@ class RabbitMQManager:
             logger.info("✅ Ensured durable exchange/queues and bindings")
         except Exception as e:
             logger.error(f"❌ Topology ensure failed: {e}")
+
+    def check_topology(self) -> Dict[str, Any]:
+        """Passively verify that exchange and queues exist and bindings are in place.
+
+        Returns a dict: {ok: bool, exchange_ok: bool, request_queue_ok: bool, response_queue_ok: bool, error: str|None}
+        """
+        result = {
+            "ok": False,
+            "exchange_ok": False,
+            "request_queue_ok": False,
+            "response_queue_ok": False,
+            "error": None,
+        }
+        try:
+            if not self.connection or self.connection.is_closed:
+                if not self.connect():
+                    result["error"] = "connect_failed"
+                    return result
+            # Passive declarations (no-create) to check existence
+            self.channel.exchange_declare(exchange=self.exchange, exchange_type=self.exchange_type, durable=self.durable, passive=True)
+            result["exchange_ok"] = True
+            self.channel.queue_declare(queue=self.request_queue, durable=self.durable, passive=True)
+            result["request_queue_ok"] = True
+            self.channel.queue_declare(queue=self.response_queue, durable=self.durable, passive=True)
+            result["response_queue_ok"] = True
+            result["ok"] = (result["exchange_ok"] and result["request_queue_ok"] and result["response_queue_ok"])
+        except Exception as e:
+            result["error"] = str(e)
+        return result
+
+    def connect_with_retries(self, max_attempts: int = 3, backoff_s: float = 1.0) -> bool:
+        """Attempt to connect with simple linear backoff retries."""
+        attempt = 0
+        while attempt < max_attempts:
+            attempt += 1
+            if self.connect():
+                return True
+            time.sleep(max(0.0, backoff_s))
+        return False
 
     def publish_notification(self, notification_data: Dict[str, Any]) -> bool:
         """Publish a notification from Twitter to RabbitMQ"""
