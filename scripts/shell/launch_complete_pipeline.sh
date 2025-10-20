@@ -3,7 +3,8 @@
 # Complete CZ Pipeline Launcher
 # Starts all components: RabbitMQ, VTerm HTTP, VTerm Proxy, and Notification Daemon
 
-SCRIPT_DIR="/Users/doctordre/projects/4bot"
+# Resolve repo root relative to this script (scripts/shell -> repo)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 LOG_DIR="$SCRIPT_DIR/logs"
 
 # Defaults for Safari headless in-memory mode unless overridden by env

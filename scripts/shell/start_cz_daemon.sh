@@ -12,8 +12,9 @@ echo "║  ⚡ In-memory execution mode                                ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo ""
 
-# Set working directory
-cd /Users/doctordre/projects/4bot
+# Resolve repo root relative to this script (scripts/shell -> repo)
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$REPO_ROOT"
 
 # Check Python environment
 echo "🔍 Checking Python environment..."
@@ -29,7 +30,7 @@ mkdir -p logs/cz_daemon
 mkdir -p Docs/status
 
 # Export environment variables
-export PYTHONPATH="/Users/doctordre/projects/4bot:$PYTHONPATH"
+export PYTHONPATH="$REPO_ROOT:$PYTHONPATH"
 export X_USER="4botbsc@gmail.com"
 export BOT_PROFILE="4botbsc"
 export CZ_MAX_REPLIES="20"
@@ -80,8 +81,8 @@ echo "🚀 Launching CZ Auto-Responder Daemon..."
 echo "   Press Ctrl+C to stop"
 echo ""
 
-# Launch the daemon
-python3 launch_cz_daemon.py 2>&1 | tee "$LOG_FILE"
+# Launch the daemon via repository path
+python3 "$REPO_ROOT/scripts/launch/launch_cz_daemon.py" 2>&1 | tee "$LOG_FILE"
 
 # Cleanup on exit
 echo ""

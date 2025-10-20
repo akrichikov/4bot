@@ -3,8 +3,11 @@ from __future__ import annotations
 import random
 from asyncio import sleep
 from typing import Awaitable, Callable, TypeVar, Dict
+from pathlib import Path
+import hashlib
 
 from tenacity import AsyncRetrying, retry_if_exception_type, stop_after_attempt, wait_fixed
+from .config import Config
 
 
 T = TypeVar("T")
@@ -69,3 +72,41 @@ class LRUSet:
             self._map.pop(oldest, None)
         self._map[key] = None
         return True
+
+
+def redact(value: str, hint: str = "token") -> str:
+    """Redact sensitive values for logs.
+
+    Keeps first 3 and last 2 characters, replaces middle with a single ellipsis, and
+    appends a sha256:8 suffix for correlation. Short values are fully masked.
+    """
+    if value is None:
+        return ""
+    s = str(value)
+    digest = hashlib.sha256(s.encode("utf-8")).hexdigest()[:8]
+    if len(s) <= 5:
+        masked = "…"
+    else:
+        masked = f"{s[:3]}…{s[-2:]}"
+    return f"{masked} [sha256:{hint}:{digest}]"
+
+
+def log_file(cfg: Config, component: str, name: str) -> Path:
+    base = Path(cfg.logs_dir)
+    path = base / component / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def artifact_file(cfg: Config, kind: str, name: str) -> Path:
+    base = Path(cfg.artifacts_dir)
+    path = base / kind / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def timestamped(cfg: Config, kind: str, stem: str, ext: str) -> Path:
+    ext = ext if ext.startswith('.') else f'.{ext}'
+    from datetime import datetime
+    t = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+    return artifact_file(cfg, kind, f"{stem}_{t}{ext}")

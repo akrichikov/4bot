@@ -11,11 +11,12 @@ echo "║  💬 Will reply to each with CZ persona                      ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo ""
 
-# Set working directory
-cd /Users/doctordre/projects/4bot
+# Resolve repo root relative to this script (scripts/shell -> repo)
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$REPO_ROOT"
 
 # Export environment
-export PYTHONPATH="/Users/doctordre/projects/4bot:$PYTHONPATH"
+export PYTHONPATH="$REPO_ROOT:$PYTHONPATH"
 export X_USER="4botbsc@gmail.com"
 
 # Create log directory
@@ -33,8 +34,8 @@ echo ""
 echo "🚀 Starting batch reply process..."
 echo ""
 
-# Run the batch reply script
-python3 cz_batch_reply.py 2>&1 | tee "$LOG_FILE"
+# Run the batch reply script via module path for reliability
+python3 -m apps.cz.cz_batch_reply 2>&1 | tee "$LOG_FILE"
 
 echo ""
 echo "✅ Batch reply process complete!"

@@ -108,6 +108,16 @@ class Config(BaseModel):
     action_retry_jitter_min_ms: int = Field(default=200)
     action_retry_jitter_max_ms: int = Field(default=600)
 
+    def cfg_paths(self) -> dict[str, Path]:
+        return {
+            "logs_dir": Path(self.logs_dir),
+            "artifacts_dir": Path(self.artifacts_dir),
+            "notification_log_dir": Path(self.notification_log_dir),
+            "report_html_outdir": Path(self.report_html_outdir),
+            "trace_dir": Path(self.trace_dir),
+            "har_dir": Path(self.har_dir),
+        }
+
     @classmethod
     def from_env(cls) -> "Config":
         load_dotenv()
@@ -173,7 +183,7 @@ class Config(BaseModel):
             geolocation_lat=(float(getenv("GEO_LAT")) if getenv("GEO_LAT") else None),
             geolocation_lon=(float(getenv("GEO_LON")) if getenv("GEO_LON") else None),
             grant_geolocation=_parse_bool(getenv("GRANT_GEOLOCATION", "false")),
-            profile_name=getenv("PROFILE", getenv("X_PROFILE", "default")) or "default",
+            profile_name=_resolve_profile_name(),
             confirm_content_enabled=_parse_bool(getenv("CONFIRM_CONTENT_ENABLED", "true")),
             report_html_enabled=_parse_bool(getenv("REPORT_HTML_ENABLED", "false")),
             report_html_actions=(getenv("REPORT_HTML_ACTIONS") or None),
@@ -206,7 +216,6 @@ class Config(BaseModel):
                 for key, val in data.items():
                     if not hasattr(cfg, key):
                         continue
-                    # Convert simple paths for known keys
                     if key in {"storage_state", "trace_dir", "har_dir", "user_data_dir"} and isinstance(val, str):
                         setattr(cfg, key, Path(val))
                     else:
@@ -220,11 +229,25 @@ class Config(BaseModel):
             if u.startswith("@"):
                 cfg.handle = u[1:]
             elif "@" in u and "." in u:
-                # likely an email; leave handle unset
                 pass
             else:
                 cfg.handle = u
+
         return cfg
+
+
+def _resolve_profile_name() -> str:
+    from os import getenv
+    env = getenv("PROFILE") or getenv("X_PROFILE")
+    if env:
+        return env
+    p = Path("config/active_profile")
+    try:
+        if p.exists():
+            return (p.read_text(encoding="utf-8").strip() or "default")
+    except Exception:
+        pass
+    return "default"
 
 
 def _parse_bool(value: str) -> bool:

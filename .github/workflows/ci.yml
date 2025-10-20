@@ -49,10 +49,31 @@ jobs:
         run: pytest -q -k "not browser_cookie_test and not live and not rabbitmq"
       - name: Run hygiene guard tests
         run: make hygiene
+      - name: Guardrails (/Users/ in scripts/apps/xbot)
+        run: |
+          set -e
+          rg -n '/Users/' scripts --no-messages -g '!scripts/manual/**' && { echo 'Found /Users/ in scripts'; exit 1; } || true
+          rg -n '/Users/' apps xbot --no-messages && { echo 'Found /Users/ in python code'; exit 1; } || true
+      - name: Guardrails (sensitive tokens printed)
+        run: |
+          set -e
+          rg -n "print\(.*(auth_token|ct0|kdt|att|password)" xbot apps scripts --no-messages -g '!scripts/manual/**' && { echo 'Suspicious prints detected'; exit 1; } || true
+      - name: Guardrails (ban /tmp usage)
+        run: |
+          set -e
+          rg -n '/tmp/' apps xbot scripts chrome_profiles --no-messages -g '!scripts/manual/**' && { echo 'Found /tmp usage'; exit 1; } || true
       - name: Build status site (best-effort)
         continue-on-error: true
         run: |
           make site || true
+      - name: Paths doctor (best-effort)
+        continue-on-error: true
+        run: |
+          make paths-doctor || true
+      - name: Paths validate (best-effort)
+        continue-on-error: true
+        run: |
+          make paths-validate || true
       - name: Generate system health (best-effort)
         continue-on-error: true
         run: |

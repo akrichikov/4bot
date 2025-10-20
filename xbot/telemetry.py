@@ -12,7 +12,7 @@ from .config import Config
 class JsonLogger:
     def __init__(self, cfg: Config):
         self.cfg = cfg
-        self.dir = Path("artifacts/logs")
+        self.dir = Path(cfg.logs_dir)
         self.dir.mkdir(parents=True, exist_ok=True)
         day = time.strftime("%Y%m%d")
         self.file = self.dir / f"{day}.log"

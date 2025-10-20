@@ -17,25 +17,40 @@ fi
 echo "└────────────────────────────────────────────────────────────┘"
 echo ""
 
-# Authentication Status
+# Authentication Status (resolve via Python helpers)
 echo "┌─ Authentication ──────────────────────────────────────────┐"
-if [ -f "auth/4botbsc/storageState.json" ]; then
-    COOKIE_COUNT=$(jq '.cookies | length' auth/4botbsc/storageState.json 2>/dev/null)
+COOKIE_COUNT=$(python - <<'PY'
+from xbot.profiles import storage_state_path
+from pathlib import Path
+import json
+p = storage_state_path('4botbsc')
+try:
+    data = json.loads(Path(p).read_text())
+    print(len(data.get('cookies', [])))
+except Exception:
+    print(0)
+PY
+)
+if [ "$COOKIE_COUNT" -gt 0 ] 2>/dev/null; then
     echo "│ ✅ Cookies: $COOKIE_COUNT tokens loaded                           │"
 else
-    echo "│ ❌ No auth file found                                         │"
+    echo "│ ❌ No valid auth cookies found                                │"
 fi
 echo "└────────────────────────────────────────────────────────────┘"
 echo ""
 
-# Reply History
+# Reply History (resolve path via Config)
 echo "┌─ Reply History ───────────────────────────────────────────┐"
-if [ -f "artifacts/state/replied_mentions.json" ]; then
-    REPLY_COUNT=$(jq 'length' artifacts/state/replied_mentions.json 2>/dev/null)
-    echo "│ 📊 Total Replies: $REPLY_COUNT mentions                            │"
-else
-    echo "│ 📊 Total Replies: 0 (file will be created on first reply)  │"
-fi
+REPLY_COUNT=$(python - <<'PY'
+from xbot.config import Config
+from pathlib import Path
+import json
+cfg = Config.from_env()
+p = Path(cfg.artifacts_dir) / 'state' / 'replied_mentions.json'
+print(len(json.loads(p.read_text())) if p.exists() else 0)
+PY
+)
+echo "│ 📊 Total Replies: ${REPLY_COUNT} mentions                            │"
 echo "└────────────────────────────────────────────────────────────┘"
 echo ""
 

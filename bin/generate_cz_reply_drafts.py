@@ -5,6 +5,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict
+from xbot.config import Config
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "Docs"
@@ -71,8 +72,10 @@ def main() -> None:
 
     ts = datetime.now().strftime("%Y-%m-%d_%H%M%S")
     md_path = STATUS_DIR / f"{datetime.now().date()}_cz_reply_drafts.md"
-    json_path = ROOT / "artifacts" / "results" / f"cz_reply_drafts_{ts}.json"
-    json_path.parent.mkdir(parents=True, exist_ok=True)
+    cfg = Config.from_env()
+    outdir = cfg.report_html_outdir
+    outdir.mkdir(parents=True, exist_ok=True)
+    json_path = outdir / f"cz_reply_drafts_{ts}.json"
 
     lines: List[str] = []
     lines.append("# CZ-Style Reply Drafts (Non-Impersonating)")

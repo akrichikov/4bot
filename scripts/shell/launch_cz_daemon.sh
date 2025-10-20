@@ -14,8 +14,9 @@ echo "║     • Post replies with tab management                       ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo ""
 
-# Set working directory
-cd /Users/doctordre/projects/4bot
+# Resolve repo root relative to this script (scripts/shell -> repo)
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$REPO_ROOT"
 
 # Check prerequisites
 echo "🔍 Checking prerequisites..."
@@ -41,16 +42,20 @@ mkdir -p logs
 # Check which method to use
 if [ "$1" == "launchd" ]; then
     echo ""
-    echo "📱 Installing as launchd daemon..."
+    echo "📱 Installing as launchd daemon via templates..."
 
-    # Copy plist to LaunchAgents
-    cp bin/launchd/com.4botbsc.cz-daemon.plist ~/Library/LaunchAgents/
+    # Compute variables for templates
+    REPO_ROOT="$REPO_ROOT"
+    LOG_DIR="$REPO_ROOT/logs"
+    X_USER_VAL="${X_USER:-}"
 
-    # Unload if already loaded
-    launchctl unload ~/Library/LaunchAgents/com.4botbsc.cz-daemon.plist 2>/dev/null
+    # Render and install launchd plists without hard-coded absolute paths in source
+    python3 -m scripts.launch.install_launchd_from_templates render \
+      --var REPO_ROOT="$REPO_ROOT" \
+      --var LOG_DIR="$LOG_DIR" \
+      ${X_USER_VAL:+--var X_USER="$X_USER_VAL"}
 
-    # Load the daemon
-    launchctl load ~/Library/LaunchAgents/com.4botbsc.cz-daemon.plist
+    python3 -m scripts.launch.install_launchd_from_templates install
 
     echo "✅ Daemon installed and started"
     echo ""

@@ -23,7 +23,8 @@ def record_action_result(
     trace_path: Optional[str] = None,
     har_path: Optional[str] = None,
 ) -> Path:
-    out_dir = Path("artifacts/results")
+    # Use configured report_html_outdir as canonical results directory
+    out_dir = Path(cfg.report_html_outdir)
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{_ts()}_{label}.json"
     payload: Dict[str, Any] = {

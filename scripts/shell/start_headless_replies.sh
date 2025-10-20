@@ -12,11 +12,12 @@ echo "║  ⚡ Fast and efficient                                      ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo ""
 
-# Set working directory
-cd /Users/doctordre/projects/4bot
+# Resolve repo root relative to this script (scripts/shell -> repo)
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$REPO_ROOT"
 
 # Export environment
-export PYTHONPATH="/Users/doctordre/projects/4bot:$PYTHONPATH"
+export PYTHONPATH="$REPO_ROOT:$PYTHONPATH"
 export X_USER="4botbsc@gmail.com"
 export HEADLESS=true
 
@@ -44,8 +45,8 @@ fi
 echo "🚀 Starting headless batch reply..."
 echo ""
 
-# Run the headless batch reply
-python3 cz_headless_batch.py 2>&1 | tee "$LOG_FILE"
+# Run the headless batch reply via module path
+python3 -m apps.cz.cz_headless_batch 2>&1 | tee "$LOG_FILE"
 
 echo ""
 echo "✅ Headless batch complete!"

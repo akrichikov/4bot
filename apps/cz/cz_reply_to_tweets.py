@@ -27,6 +27,7 @@ from xbot.browser import Browser
 from xbot.flows.login import login_if_needed
 from xbot.facade import XBot
 from xbot.cookies import load_cookie_json, merge_into_storage
+from xbot.utils import log_file
 
 logging.basicConfig(
     level=logging.INFO,
@@ -228,9 +229,8 @@ class CZTweetReplier:
                 "urls_processed": urls
             }
 
-            log_path = Path("logs/tweet_reply_summary.json")
-            log_path.parent.mkdir(exist_ok=True)
-            with open(log_path, 'w') as f:
+            log_path = log_file(self.config, 'reports', 'tweet_reply_summary.json')
+            with open(log_path, 'w', encoding='utf-8') as f:
                 json.dump(summary, f, indent=2)
 
             logger.info(f"\n📄 Summary saved to: {log_path}")

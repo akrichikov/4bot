@@ -126,6 +126,10 @@ ipython_config.py
 # Node / TypeScript
 node_modules/
 dist/
+
+# Generated status reports
+Docs/status/*.json
+Docs/status/*.html
 .pnpm-store/
 .eslintcache
 

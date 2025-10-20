@@ -13,8 +13,12 @@ from datetime import datetime
 from playwright.async_api import async_playwright
 import logging
 
+from xbot.config import Config
+from xbot.utils import log_file
+
 # Setup logging to both file and console
-logs_dir = Path('logs/monitor')
+_cfg = Config.from_env()
+logs_dir = Path(_cfg.logs_dir) / 'monitor'
 logs_dir.mkdir(parents=True, exist_ok=True)
 log_file = str(logs_dir / f'headless_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log')
 logging.basicConfig(
@@ -44,12 +48,16 @@ class HeadlessMonitor:
         logger.info(f"Duration: {duration_seconds} seconds")
         logger.info("=" * 70)
 
-        # Load cookies
-        cookie_file = Path("chrome_profiles/cookies/default_cookies.json")
-        with open(cookie_file, 'r') as f:
-            cookies = json.load(f)
-
-        logger.info(f"Loaded {len(cookies)} cookies from test account")
+        # Load cookies via centralized helper (best-effort)
+        try:
+            from xbot.cookies import load_cookies_best_effort
+            cfg = _cfg
+            cookies = load_cookies_best_effort(profile=cfg.profile_name)
+            logger.info(f"Loaded {len(cookies)} cookies via helper for profile={cfg.profile_name}")
+        except Exception as e:
+            logger.warning(f"Cookie load failed via helper: {e}; falling back to chrome_profiles default")
+            cookie_file = Path("chrome_profiles/cookies/default_cookies.json")
+            cookies = json.loads(cookie_file.read_text(encoding='utf-8')) if cookie_file.exists() else []
 
         playwright = await async_playwright().start()
 
@@ -100,9 +108,9 @@ class HeadlessMonitor:
                             logger.info("This post contains AI-related content")
 
                             # Save to special file
-                            results_dir = Path('artifacts/results')
+                            results_dir = Path(_cfg.report_html_outdir)
                             results_dir.mkdir(parents=True, exist_ok=True)
-                            with open(results_dir / 'ai_posts_intercepted.json', 'a') as f:
+                            with open(results_dir / 'ai_posts_intercepted.json', 'a', encoding='utf-8') as f:
                                 json.dump(post_data, f)
                                 f.write('\n')
 

@@ -5,6 +5,7 @@ from typing import Any as _Moved
 import subprocess
 from datetime import datetime
 from pathlib import Path
+from xbot.config import Config
 
 def run_cmd(cmd):
     """Run shell command and return output."""
@@ -40,8 +41,10 @@ except:
 
 # Get replied tweets
 try:
-    replied_count = len(json.loads(Path("artifacts/state/replied_mentions.json").read_text()))
-except:
+    cfg = Config.from_env()
+    replied_path = Path(cfg.artifacts_dir) / 'state' / 'replied_mentions.json'
+    replied_count = len(json.loads(replied_path.read_text())) if replied_path.exists() else 0
+except Exception:
     replied_count = 0
 
 # Get recent log

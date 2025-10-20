@@ -11,6 +11,10 @@ from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, asdict
 import browser_cookie3
 import shutil
+try:
+    from xbot.config import Config
+except Exception:
+    Config = None
 
 
 @dataclass
@@ -108,8 +112,16 @@ class ChromeProfileManager:
         cookies_db = profile_path / "Cookies"
         if cookies_db.exists():
             try:
-                # Create a temporary copy to avoid locking issues
-                temp_db = Path(f"/tmp/cookies_{profile_name}.db")
+                # Create a temporary copy to avoid locking issues (under artifacts/tmp)
+                tmp_dir = Path("artifacts/tmp")
+                try:
+                    if Config is not None:
+                        cfg = Config.from_env()
+                        tmp_dir = Path(cfg.artifacts_dir) / "tmp"
+                except Exception:
+                    pass
+                tmp_dir.mkdir(parents=True, exist_ok=True)
+                temp_db = tmp_dir / f"cookies_{profile_name}.db"
                 shutil.copy2(cookies_db, temp_db)
 
                 # Connect to the database
@@ -133,7 +145,10 @@ class ChromeProfileManager:
                         profile.cookies_extracted = True
 
                 conn.close()
-                temp_db.unlink()
+                try:
+                    temp_db.unlink()
+                except Exception:
+                    pass
 
             except Exception as e:
                 print(f"Could not extract cookies for {profile_name}: {e}")

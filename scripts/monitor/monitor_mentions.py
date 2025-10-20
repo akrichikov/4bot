@@ -9,12 +9,15 @@ from typing import List, Dict, Any
 from playwright.async_api import async_playwright
 
 from xbot.profiles import storage_state_path
+from xbot.config import Config
+from xbot.utils import artifact_file
 
 
 class MentionMonitor:
     def __init__(self):
+        self.cfg = Config.from_env()
         self.storage_path = storage_state_path("4botbsc")
-        self.replied_tweets_file = Path("artifacts/state/replied_mentions.json")
+        self.replied_tweets_file = artifact_file(self.cfg, 'state', 'replied_mentions.json')
         self.replied_tweets = self._load_replied_tweets()
 
     def _load_cookies(self) -> List[Dict[str, Any]]:

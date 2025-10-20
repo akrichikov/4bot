@@ -103,8 +103,11 @@ async def reply_to_tweet(tweet_url: str, response_text: str) -> bool:
             await asyncio.sleep(1.5)
         except Exception as e:
             print(f"❌ Could not find reply button: {e}")
-            Path("Docs/status/diagnostics").mkdir(parents=True, exist_ok=True)
-            await page.screenshot(path="Docs/status/diagnostics/mention_reply_error.png")
+            from xbot.config import Config
+            from xbot.utils import log_file
+            cfg = Config.from_env()
+            shot = log_file(cfg, 'diagnostics', 'mention_reply_error.png')
+            await page.screenshot(path=str(shot))
             await browser.close()
             return False
 
@@ -140,7 +143,11 @@ async def reply_to_tweet(tweet_url: str, response_text: str) -> bool:
             await asyncio.sleep(1)
         except Exception as e:
             print(f"❌ Could not type response: {e}")
-            await page.screenshot(path="Docs/status/diagnostics/mention_typing_error.png")
+            from xbot.config import Config
+            from xbot.utils import log_file
+            cfg = Config.from_env()
+            shot = log_file(cfg, 'diagnostics', 'mention_typing_error.png')
+            await page.screenshot(path=str(shot))
             await browser.close()
             return False
 
@@ -176,8 +183,11 @@ async def reply_to_tweet(tweet_url: str, response_text: str) -> bool:
 
         except Exception as e:
             print(f"⚠️  Initial submit path failed: {e}")
-            Path("Docs/status/diagnostics").mkdir(parents=True, exist_ok=True)
-            await page.screenshot(path="Docs/status/diagnostics/mention_submit_error.png")
+            from xbot.config import Config
+            from xbot.utils import log_file
+            cfg = Config.from_env()
+            shot = log_file(cfg, 'diagnostics', 'mention_submit_error.png')
+            await page.screenshot(path=str(shot))
             success = False
 
         # Keep browser open for a moment to see result

@@ -23,7 +23,18 @@ from .scheduler import run_schedule
 from .report import summary as report_summary, export_csv as report_export_csv, check_threshold as report_check_threshold
 from .report_html import html_report as report_html
 from .report_health import write_system_health_html, write_status_index
-from .profiles import profile_paths, list_profiles, ensure_profile_dirs, clear_state, set_overlay_value, del_overlay_key, read_overlay
+from .report_html import daily_index as report_daily_index
+from .utils import redact
+from .profiles import (
+    profile_paths,
+    list_profiles,
+    ensure_profile_dirs,
+    clear_state,
+    set_overlay_value,
+    del_overlay_key,
+    read_overlay,
+    validate as profiles_validate,
+)
 from .vterm import VTerm
 from .vtermd import VTermDaemon, client_request, DEFAULT_SOCKET
 from .vterm_http import VTermHTTPServer
@@ -36,13 +47,15 @@ import json
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
 cookies_app = typer.Typer(no_args_is_help=True, add_completion=False)
+profile_app = typer.Typer(no_args_is_help=True, add_completion=False)
 session_app = typer.Typer(no_args_is_help=True, add_completion=False)
 play_app = typer.Typer(no_args_is_help=True, add_completion=False)
 health_app = typer.Typer(no_args_is_help=True, add_completion=False)
 schedule_app = typer.Typer(no_args_is_help=True, add_completion=False)
 report_app = typer.Typer(no_args_is_help=True, add_completion=False)
 mq_app = typer.Typer(no_args_is_help=True, add_completion=False)
-profile_app = typer.Typer(no_args_is_help=True, add_completion=False)
+paths_app = typer.Typer(no_args_is_help=True, add_completion=False)
+site_app = typer.Typer(no_args_is_help=True, add_completion=False)
 app.add_typer(cookies_app, name="cookies", help="Import/export storage state")
 app.add_typer(session_app, name="session", help="Session utilities")
 app.add_typer(play_app, name="queue", help="Run playbooks (JSON sequence of actions)")
@@ -51,6 +64,8 @@ app.add_typer(schedule_app, name="schedule", help="Schedule playbooks by times-o
 app.add_typer(report_app, name="report", help="Summaries and exports for results")
 app.add_typer(profile_app, name="profile", help="Manage named profiles (sessions)")
 app.add_typer(mq_app, name="mq", help="RabbitMQ utilities")
+app.add_typer(paths_app, name="paths", help="Show resolved directories and key paths")
+app.add_typer(site_app, name="site", help="Build/clean/open status site")
 vterm_app = typer.Typer(no_args_is_help=True, add_completion=False)
 app.add_typer(vterm_app, name="vterm", help="In-memory PTY virtual terminal")
 queue_app = typer.Typer(no_args_is_help=True, add_completion=False)
@@ -212,6 +227,9 @@ def report_aggregate_status(
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(rep, ensure_ascii=False, indent=2), encoding='utf-8')
     print(f"[green]Wrote[/green] {out}\n{json.dumps(rep, indent=2)}")
+
+
+ 
 
 
 def _cfg(
@@ -742,6 +760,14 @@ def profile_doctor(name: str = typer.Argument("default"), strict: bool = typer.O
         raise typer.Exit(code=1)
 
 
+@profile_app.command("set-default")
+def profile_set_default(name: str = typer.Argument("default", help="Profile name to set as default")) -> None:
+    out = Path("config/active_profile")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(name.strip(), encoding="utf-8")
+    print(f"[green]Default profile set to[/green] {name} -> {out}")
+
+
 @profile_app.command("set-proxy")
 def profile_set_proxy(name: str, proxy_url: str) -> None:
     set_overlay_value(name, "proxy_url", proxy_url)
@@ -1228,6 +1254,437 @@ def health_status_index_cmd(
     print(f"[green]Wrote {idx}[/green]")
 
 
+@paths_app.command("show")
+def paths_show(json_out: Optional[Path] = typer.Option(None, help="Optional JSON out path")) -> None:
+    cfg = Config.from_env()
+    info = cfg.cfg_paths()
+    info_extra = {
+        "profile": cfg.profile_name,
+        "storage_state": str(cfg.storage_state),
+        "user_data_dir": str(cfg.user_data_dir),
+        "repo_root": str(Path('.').resolve()),
+    }
+    data = {k: str(v) for k, v in info.items()}
+    data.update(info_extra)
+    s = json.dumps(data, ensure_ascii=False, indent=2)
+    if json_out:
+        json_out.parent.mkdir(parents=True, exist_ok=True)
+        json_out.write_text(s, encoding="utf-8")
+        print(f"[green]Wrote[/green] {json_out}")
+    else:
+        print(s)
+
+
+@paths_app.command("doctor")
+def paths_doctor(
+    ensure: bool = typer.Option(False, help="Create missing directories under configured roots"),
+    json_out: Optional[Path] = typer.Option(None, help="Optional JSON out path"),
+) -> None:
+    import os
+    cfg = Config.from_env()
+    roots = cfg.cfg_paths()
+    repo_root = Path('.').resolve()
+    report = {"profile": cfg.profile_name, "repo_root": str(repo_root), "paths": {}}
+
+    for name, p in roots.items():
+        d = {"path": str(p), "exists": p.exists()}
+        if not d["exists"] and ensure:
+            try:
+                p.mkdir(parents=True, exist_ok=True)
+                d["created"] = True
+            except Exception as e:
+                d["created"] = False
+                d["error"] = str(e)
+        try:
+            d["writable"] = os.access(p if p.exists() else p.parent, os.W_OK)
+        except Exception:
+            d["writable"] = False
+        # safety: check within repo
+        try:
+            d["within_repo"] = p.resolve().is_relative_to(repo_root)
+        except Exception:
+            d["within_repo"] = False
+        report["paths"][name] = d
+
+    report["storage_state"] = {"path": str(cfg.storage_state), "exists": Path(cfg.storage_state).exists()}
+    report["user_data_dir"] = {"path": str(cfg.user_data_dir), "exists": Path(cfg.user_data_dir).exists()}
+
+    s = json.dumps(report, ensure_ascii=False, indent=2)
+    if json_out:
+        json_out.parent.mkdir(parents=True, exist_ok=True)
+        json_out.write_text(s, encoding="utf-8")
+        print(f"[green]Wrote[/green] {json_out}")
+    else:
+        print(s)
+
+
+@paths_app.command("env")
+def paths_env(json_out: Optional[Path] = typer.Option(None, help="Optional JSON out path")) -> None:
+    import os
+    keys = [
+        "PROFILE", "X_PROFILE",
+        "ARTIFACTS_DIR", "LOGS_DIR", "NOTIFICATION_LOG_DIR",
+        "REPORT_HTML_OUTDIR", "TRACE_DIR", "HAR_DIR",
+        "STORAGE_STATE", "USER_DATA_DIR",
+        "BROWSER", "BROWSER_NAME", "VTERM_SOCKET",
+    ]
+    data = {k: os.getenv(k) for k in keys}
+    s = json.dumps(data, ensure_ascii=False, indent=2)
+    if json_out:
+        json_out.parent.mkdir(parents=True, exist_ok=True)
+        json_out.write_text(s, encoding="utf-8")
+        print(f"[green]Wrote[/green] {json_out}")
+    else:
+        print(s)
+
+
+@paths_app.command("markdown")
+def paths_markdown(out_md: Path = typer.Option(Path("Docs/status/paths.md"), help="Output markdown path")) -> None:
+    """Write a human-readable markdown summary of configured paths and relevant env."""
+    import os
+    cfg = Config.from_env()
+    paths = cfg.cfg_paths()
+    env_keys = [
+        "PROFILE", "X_PROFILE",
+        "ARTIFACTS_DIR", "LOGS_DIR", "NOTIFICATION_LOG_DIR",
+        "REPORT_HTML_OUTDIR", "TRACE_DIR", "HAR_DIR",
+        "STORAGE_STATE", "USER_DATA_DIR",
+        "BROWSER", "BROWSER_NAME", "VTERM_SOCKET",
+    ]
+    out_md.parent.mkdir(parents=True, exist_ok=True)
+    lines = []
+    lines.append("# Paths Summary\n")
+    lines.append(f"- Profile: `{cfg.profile_name}`")
+    lines.append(f"- Repo Root: `{Path('.').resolve()}`\n")
+    lines.append("## Configured Roots\n")
+    for k in ["logs_dir", "artifacts_dir", "notification_log_dir", "report_html_outdir", "trace_dir", "har_dir"]:
+        p = paths.get(k)
+        lines.append(f"- {k}: `{p}`")
+    lines.append("")
+    lines.append("## Profile Paths\n")
+    lines.append(f"- storage_state: `{cfg.storage_state}`")
+    lines.append(f"- user_data_dir: `{cfg.user_data_dir}`\n")
+    lines.append("## Environment Overrides\n")
+    for k in env_keys:
+        v = os.getenv(k) or ""
+        lines.append(f"- {k}: `{v}`")
+    out_md.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"[green]Wrote[/green] {out_md}")
+
+
+@paths_app.command("export")
+def paths_export(
+    out_dir: Path = typer.Option(Path("Docs/status"), help="Directory to write all path artifacts"),
+    ensure: bool = typer.Option(True, help="Create missing directories under configured roots during doctor"),
+) -> None:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    # 1) JSON snapshot
+    paths_show(out_dir / "paths.json")
+    # 2) Env snapshot
+    paths_env(out_dir / "paths_env.json")
+    # 3) Doctor (ensure configurable)
+    import os, json as _json
+    cfg = Config.from_env()
+    # inline doctor behavior to honor ensure
+    roots = cfg.cfg_paths()
+    repo_root = Path('.').resolve()
+    report = {"profile": cfg.profile_name, "repo_root": str(repo_root), "paths": {}}
+    for name, p in roots.items():
+        d = {"path": str(p), "exists": p.exists()}
+        if not d["exists"] and ensure:
+            try:
+                p.mkdir(parents=True, exist_ok=True)
+                d["created"] = True
+            except Exception as e:
+                d["created"] = False
+                d["error"] = str(e)
+        try:
+            d["writable"] = os.access(p if p.exists() else p.parent, os.W_OK)
+        except Exception:
+            d["writable"] = False
+        try:
+            d["within_repo"] = p.resolve().is_relative_to(repo_root)
+        except Exception:
+            d["within_repo"] = False
+        report["paths"][name] = d
+    report["storage_state"] = {"path": str(cfg.storage_state), "exists": Path(cfg.storage_state).exists()}
+    report["user_data_dir"] = {"path": str(cfg.user_data_dir), "exists": Path(cfg.user_data_dir).exists()}
+    (out_dir / "paths_doctor.json").write_text(_json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    # 4) Markdown summary
+    paths_markdown(out_dir / "paths.md")
+    print(f"[green]Wrote path artifacts to[/green] {out_dir}")
+
+
+@paths_app.command("validate")
+def paths_validate(
+    strict: bool = typer.Option(False, help="Exit non-zero when any check fails"),
+    json_out: Optional[Path] = typer.Option(None, help="Optional JSON out path"),
+) -> None:
+    import os
+    cfg = Config.from_env()
+    roots = cfg.cfg_paths()
+    repo_root = Path('.').resolve()
+    rep = {"profile": cfg.profile_name, "repo_root": str(repo_root), "paths": {}, "ok": True}
+    for name, p in roots.items():
+        d = {"path": str(p), "exists": p.exists()}
+        try:
+            d["writable"] = os.access(p if p.exists() else p.parent, os.W_OK)
+        except Exception:
+            d["writable"] = False
+        try:
+            d["within_repo"] = p.resolve().is_relative_to(repo_root)
+        except Exception:
+            d["within_repo"] = False
+        rep["paths"][name] = d
+        if not (d["exists"] and d["writable"] and d["within_repo"]):
+            rep["ok"] = False
+    # Profile paths are informative only here
+    rep["storage_state"] = {"path": str(cfg.storage_state), "exists": Path(cfg.storage_state).exists()}
+    rep["user_data_dir"] = {"path": str(cfg.user_data_dir), "exists": Path(cfg.user_data_dir).exists()}
+    s = json.dumps(rep, ensure_ascii=False, indent=2)
+    if json_out:
+        json_out.parent.mkdir(parents=True, exist_ok=True)
+        json_out.write_text(s, encoding='utf-8')
+        print(f"[green]Wrote[/green] {json_out}\n{s}")
+    else:
+        print(s)
+    if strict and not rep["ok"]:
+        raise typer.Exit(code=1)
+
+
+# -------------------------------
+# Status site commands
+# -------------------------------
+
+@site_app.command("build")
+def site_build(
+    out_dir: Path = typer.Option(Path("Docs/status"), help="Output directory for site artifacts"),
+    include_health: bool = typer.Option(False, help="Also generate system health HTML/JSON"),
+    strict: bool = typer.Option(False, help="Validate configured roots and exit non-zero on failure"),
+) -> None:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    # Paths
+    paths_export(out_dir)
+    # Repo layout
+    from .repo_report import write_repo_layout_md
+    write_repo_layout_md(out_dir / "repo_layout.md", Path("."), max_depth=2)
+    # Health (optional)
+    if include_health:
+        rep = asyncio.run(health_system(Config.from_env(), vterm_http_base=None))
+        (out_dir / "system_health.json").write_text(json.dumps(rep, indent=2), encoding="utf-8")
+        write_system_health_html(rep, out_dir / "system_health.html")
+    # Validation (writes paths_validate.json)
+    import os as _os
+    cfg = Config.from_env()
+    roots = cfg.cfg_paths()
+    repo_root = Path('.').resolve()
+    rep = {"profile": cfg.profile_name, "repo_root": str(repo_root), "paths": {}, "ok": True}
+    for name, p in roots.items():
+        d = {"path": str(p), "exists": p.exists()}
+        try:
+            d["writable"] = _os.access(p if p.exists() else p.parent, _os.W_OK)
+        except Exception:
+            d["writable"] = False
+        try:
+            d["within_repo"] = p.resolve().is_relative_to(repo_root)
+        except Exception:
+            d["within_repo"] = False
+        rep["paths"][name] = d
+        if not (d["exists"] and d["writable"] and d["within_repo"]):
+            rep["ok"] = False
+    (out_dir / "paths_validate.json").write_text(json.dumps(rep, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    # Generate results daily index (best-effort)
+    try:
+        report_daily_index(Path(cfg.report_html_outdir))
+    except Exception:
+        pass
+
+    # Proxies to results report and daily index (best-effort)
+    try:
+        res_dir = Path(cfg.report_html_outdir)
+        rep_html = res_dir / "report.html"
+        daily_idx = res_dir / "daily" / "index.html"
+        def _proxy(path: Path, label: str, target_rel: str):
+            html = f"""
+<html><head><meta charset='utf-8'><meta http-equiv='refresh' content='0; url={target_rel}' /><title>{label}</title></head>
+<body><a href='{target_rel}'>Open {label}</a></body></html>
+""".strip()
+            path.write_text(html, encoding='utf-8')
+        if rep_html.exists():
+            _proxy(out_dir / "results_report.html", "Results Report", "../" + str(rep_html.as_posix()))
+        if daily_idx.exists():
+            _proxy(out_dir / "daily_index.html", "Daily Reports", "../" + str(daily_idx.as_posix()))
+    except Exception:
+        pass
+
+    # Secrets scan (best-effort) into status dir
+    try:
+        ss_out = out_dir / 'secrets_scan.json'
+        report_scan_secrets(src=None, out=ss_out)
+        if not ss_out.exists():
+            # Write minimal empty report to ensure presence
+            ss_out.write_text(json.dumps({"roots": [], "patterns": [], "scanned_files": 0, "incidents": []}, ensure_ascii=False, indent=2), encoding='utf-8')
+    except Exception:
+        try:
+            # Fallback: basic file count scan
+            roots = [Path(cfg.logs_dir), Path(cfg.artifacts_dir)]
+            exts = {'.log','.json','.txt','.md','.html','.csv'}
+            cnt = 0
+            for root in roots:
+                if root.exists():
+                    for p in root.rglob('*'):
+                        if p.is_file() and p.suffix.lower() in exts:
+                            cnt += 1
+            (out_dir / 'secrets_scan.json').write_text(json.dumps({"roots": [str(r) for r in roots], "patterns": [], "scanned_files": cnt, "incidents": []}, ensure_ascii=False, indent=2), encoding='utf-8')
+        except Exception:
+            pass
+
+    # Screens gallery (best-effort)
+    try:
+        import os
+        from datetime import datetime
+        src_dir = Path(cfg.artifacts_dir) / 'screens'
+        if src_dir.exists():
+            exts = {'.png', '.jpg', '.jpeg', '.gif'}
+            images = [p for p in src_dir.iterdir() if p.is_file() and p.suffix.lower() in exts]
+            if images:
+                try:
+                    images.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+                except Exception:
+                    images.sort()
+                gal = out_dir / 'screens_gallery.html'
+                gal.parent.mkdir(parents=True, exist_ok=True)
+                parts = []
+                parts.append("<html><head><meta charset='utf-8'><title>Screens Gallery</title>")
+                parts.append("<style>body{font-family:system-ui,Segoe UI,Arial,sans-serif;padding:16px} .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px} .card{border:1px solid #ddd;border-radius:6px;padding:8px} .meta{color:#666;font-size:12px}</style>")
+                parts.append("</head><body><h1>Screens Gallery</h1>")
+                parts.append(f"<div class='meta'>Source: {src_dir} | Count: {len(images)}</div>")
+                parts.append("<div class='grid'>")
+                for p in images[:200]:
+                    rel = os.path.relpath(p, gal.parent)
+                    try:
+                        kb = max(1, p.stat().st_size // 1024); mt = datetime.fromtimestamp(p.stat().st_mtime).isoformat(sep=' ', timespec='seconds')
+                    except Exception:
+                        kb = 0; mt = ''
+                    parts.append("<div class='card'>")
+                    parts.append(f"<div><a href='{rel}'><img src='{rel}' style='width:100%;height:auto;border-radius:4px' alt='{p.name}'/></a></div>")
+                    parts.append(f"<div class='meta'>{p.name} — {kb} KB — {mt}</div>")
+                    parts.append("</div>")
+                parts.append("</div></body></html>")
+                gal.write_text("\n".join(parts), encoding='utf-8')
+    except Exception:
+        pass
+
+    # Index
+    write_status_index(out_dir)
+    # Manifest (best-effort)
+    try:
+        from .cli import report_manifest_cmd as _man
+        _man.callback(dir=out_dir, out=out_dir / 'manifest.json') if hasattr(_man, 'callback') else None
+    except Exception:
+        pass
+    # Build version info (best-effort)
+    try:
+        from .cli import report_version_cmd as _ver
+        _ver.callback(out=out_dir / 'version.json') if hasattr(_ver, 'callback') else None
+    except Exception:
+        pass
+    print(f"[green]Site built at[/green] {out_dir}")
+    if strict and not rep["ok"]:
+        raise typer.Exit(code=1)
+
+
+@site_app.command("clean")
+def site_clean(out_dir: Path = typer.Option(Path("Docs/status"), help="Status site directory")) -> None:
+    removed = []
+    if out_dir.exists():
+        for p in out_dir.glob("*.html"):
+            try:
+                p.unlink(); removed.append(str(p))
+            except Exception:
+                pass
+        for p in out_dir.glob("*.json"):
+            try:
+                p.unlink(); removed.append(str(p))
+            except Exception:
+                pass
+    print(json.dumps({"removed": removed}, ensure_ascii=False, indent=2))
+
+
+@site_app.command("open")
+def site_open(out_dir: Path = typer.Option(Path("Docs/status"), help="Status site directory")) -> None:
+    import webbrowser
+    idx = out_dir / "index.html"
+    if not idx.exists():
+        raise typer.BadParameter(f"index.html not found at {idx}")
+    webbrowser.open(idx.resolve().as_uri())
+    print(f"[green]Opened[/green] {idx}")
+
+
+@paths_app.command("init")
+def paths_init() -> None:
+    """Create common subdirectories under configured roots (idempotent)."""
+    cfg = Config.from_env()
+    arts = Path(cfg.artifacts_dir)
+    logs = Path(cfg.logs_dir)
+    art_subs = [
+        "results", "screens", "html", "traces", "har", "state", "secure", "misc",
+    ]
+    log_subs = [
+        "monitor", "cz_daemon", "headless_batch",
+    ]
+    created = {"artifacts": [], "logs": []}
+    arts.mkdir(parents=True, exist_ok=True)
+    logs.mkdir(parents=True, exist_ok=True)
+    for s in art_subs:
+        p = arts / s
+        p.mkdir(parents=True, exist_ok=True)
+        created["artifacts"].append(str(p))
+    for s in log_subs:
+        p = logs / s
+        p.mkdir(parents=True, exist_ok=True)
+        created["logs"].append(str(p))
+    print(json.dumps({"ok": True, **created}, ensure_ascii=False, indent=2))
+
+
+@paths_app.command("diff")
+def paths_diff(
+    a: Path = typer.Argument(..., help="First JSON snapshot (e.g., paths.json)"),
+    b: Path = typer.Argument(..., help="Second JSON snapshot (e.g., paths.json)"),
+    json_out: Optional[Path] = typer.Option(None, help="Optional JSON out path for diff report"),
+) -> None:
+    """Compute a simple diff between two JSON snapshots (keys → values)."""
+    import json as _json
+    def _read(p: Path):
+        try:
+            return _json.loads(p.read_text(encoding='utf-8'))
+        except Exception:
+            return {}
+    A = _read(a)
+    B = _read(b)
+    keys = set(A.keys()) | set(B.keys())
+    rep = {"added": {}, "removed": {}, "changed": {}, "same": {}}
+    for k in sorted(keys):
+        av = A.get(k, None)
+        bv = B.get(k, None)
+        if k not in A:
+            rep["added"][k] = bv
+        elif k not in B:
+            rep["removed"][k] = av
+        elif av != bv:
+            rep["changed"][k] = {"from": av, "to": bv}
+        else:
+            rep["same"][k] = av
+    s = json.dumps(rep, ensure_ascii=False, indent=2)
+    if json_out:
+        json_out.parent.mkdir(parents=True, exist_ok=True)
+        json_out.write_text(s, encoding='utf-8')
+        print(f"[green]Wrote[/green] {json_out}\n{s}")
+    else:
+        print(s)
+
+
 @mq_app.command("check-topology")
 def mq_check_topology(strict: bool = typer.Option(False, help="Exit non-zero when topology check fails")) -> None:
     from .rabbitmq_manager import RabbitMQManager
@@ -1358,40 +1815,50 @@ def schedule_run(
 
 
 @report_app.command("summary")
-def report_summary_cmd(index: Path = Path("artifacts/results/index.jsonl")) -> None:
+def report_summary_cmd(index: Optional[Path] = None) -> None:
     from rich import print as rprint
-    data = report_summary(index)
+    cfg = Config.from_env()
+    idx = index or (cfg.report_html_outdir / "index.jsonl")
+    data = report_summary(idx)
     rprint(data)
 
 
 @report_app.command("export-csv")
-def report_export_csv_cmd(index: Path = Path("artifacts/results/index.jsonl"), out: Path = Path("artifacts/results/index.csv")) -> None:
-    report_export_csv(index, out)
-    print(f"[green]Wrote {out}[/green]")
+def report_export_csv_cmd(index: Optional[Path] = None, out: Optional[Path] = None) -> None:
+    cfg = Config.from_env()
+    idx = index or (cfg.report_html_outdir / "index.jsonl")
+    outp = out or (cfg.report_html_outdir / "index.csv")
+    report_export_csv(idx, outp)
+    print(f"[green]Wrote {outp}[/green]")
 
 
 @report_app.command("html")
 def report_html_cmd(
-    index: Path = Path("artifacts/results/index.jsonl"),
-    out: Path = Path("artifacts/results/report.html"),
+    index: Optional[Path] = None,
+    out: Optional[Path] = None,
     actions: str = typer.Option("", help="Comma-separated list of actions to include (optional)"),
     limit: int = typer.Option(100, help="Max number of records"),
     date: str = typer.Option("", help="Filter by date (YYYY-MM-DD) optional"),
 ) -> None:
     acts = [a.strip() for a in actions.split(",") if a.strip()] if actions else None
-    path = report_html(index, out, actions=acts, limit=limit, date_str=(date or None))
+    cfg = Config.from_env()
+    idx = index or (cfg.report_html_outdir / "index.jsonl")
+    outp = out or (cfg.report_html_outdir / "report.html")
+    path = report_html(idx, outp, actions=acts, limit=limit, date_str=(date or None))
     print(f"[green]Wrote {path}[/green]")
 
 
 @report_app.command("threshold")
 def report_threshold_cmd(
-    index: Path = Path("artifacts/results/index.jsonl"),
+    index: Optional[Path] = None,
     actions: str = typer.Option("", help="Comma-separated actions filter (optional)"),
     window: int = typer.Option(100, help="Window size (last N records)"),
     min_rate: float = typer.Option(0.8, help="Minimum success rate threshold (0-1)"),
 ) -> None:
     acts = [a.strip() for a in actions.split(",") if a.strip()] if actions else None
-    ok = report_check_threshold(index, acts, window, min_rate)
+    cfg = Config.from_env()
+    idx = index or (cfg.report_html_outdir / "index.jsonl")
+    ok = report_check_threshold(idx, acts, window, min_rate)
     if not ok:
         print(f"[red]Threshold check failed: window={window}, min_rate={min_rate}[/red]")
         raise typer.Exit(code=1)
@@ -1412,14 +1879,16 @@ def report_vterm_audit(
 
 @report_app.command("json")
 def report_json_cmd(
-    index: Path = Path("artifacts/results/index.jsonl"),
+    index: Optional[Path] = None,
     actions: str = typer.Option("", help="Comma-separated actions filter (optional)"),
     window: int = typer.Option(200, help="Window size (last N records)"),
     out: Optional[Path] = typer.Option(None, help="Output JSON file (optional)"),
 ) -> None:
     acts = [a.strip() for a in actions.split(",") if a.strip()] if actions else None
     from .report import consolidate as report_consolidate
-    data = report_consolidate(index, acts, window=window)
+    cfg = Config.from_env()
+    idx = index or (cfg.report_html_outdir / "index.jsonl")
+    data = report_consolidate(idx, acts, window=window)
     from rich import print as rprint
     rprint(data)
     if out:
@@ -1428,12 +1897,209 @@ def report_json_cmd(
         out.write_text(json.dumps(data, ensure_ascii=False, indent=2))
 
 
+@report_app.command("daily-index")
+def report_daily_index_cmd(
+    outdir: Optional[Path] = typer.Option(None, help="Results directory (defaults to cfg.report_html_outdir)"),
+) -> None:
+    cfg = Config.from_env()
+    rd = outdir or Path(cfg.report_html_outdir)
+    path = report_daily_index(rd)
+    print(f"[green]Wrote[/green] {path}")
+
+
+@report_app.command("scan-secrets")
+def report_scan_secrets(
+    src: Optional[Path] = typer.Option(None, help="Directory to scan (defaults to cfg.logs_dir and cfg.artifacts_dir)"),
+    out: Optional[Path] = typer.Option(None, help="Write JSON report to this path"),
+    patterns: str = typer.Option("auth_token,ct0,kdt,att,password", help="Comma-separated keys to scan for"),
+    max_samples: int = typer.Option(3, help="Max redacted sample values to include per key/file"),
+) -> None:
+    import re
+    cfg = Config.from_env()
+    roots: List[Path] = []
+    if src:
+        roots = [Path(src)]
+    else:
+        roots = [Path(cfg.logs_dir), Path(cfg.artifacts_dir)]
+    keys = [k.strip() for k in patterns.split(',') if k.strip()]
+    regexes = {k: re.compile(rf"{re.escape(k)}\s*[:=]\s*([A-Za-z0-9_\-\.]+)", re.IGNORECASE) for k in keys}
+    incidents: List[Dict[str, Any]] = []
+    scanned_files = 0
+    for root in roots:
+        if not root.exists():
+            continue
+        for p in root.rglob('*'):
+            if not p.is_file():
+                continue
+            # only scan text-like extensions to reduce noise
+            if p.suffix.lower() not in {'.log', '.json', '.txt', '.md', '.html', '.csv'}:
+                continue
+            try:
+                txt = p.read_text(encoding='utf-8', errors='ignore')
+            except Exception:
+                continue
+            scanned_files += 1
+            file_rep: Dict[str, Any] = {"file": str(p), "matches": []}
+            found_any = False
+            for k, rx in regexes.items():
+                hits = rx.findall(txt)
+                if hits:
+                    found_any = True
+                    samples = []
+                    for v in hits[:max_samples]:
+                        samples.append(redact(str(v), hint=k))
+                    file_rep["matches"].append({"key": k, "count": len(hits), "samples": samples})
+            if found_any:
+                incidents.append(file_rep)
+    rep = {"roots": [str(r) for r in roots], "patterns": keys, "scanned_files": scanned_files, "incidents": incidents}
+    s = json.dumps(rep, ensure_ascii=False, indent=2)
+    if out:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(s, encoding='utf-8')
+        print(f"[green]Wrote[/green] {out}\n{s}")
+    else:
+        import sys as _sys
+        _sys.stdout.write(s + "\n")
+
+
+@report_app.command("gallery")
+def report_gallery_cmd(
+    src: Optional[Path] = typer.Option(None, help="Source directory of images (defaults to artifacts/screens)"),
+    out: Path = typer.Option(Path("Docs/status/screens_gallery.html"), help="Output HTML path"),
+    limit: int = typer.Option(200, help="Max number of images to include (newest first)"),
+) -> None:
+    import os
+    cfg = Config.from_env()
+    src_dir = src or (Path(cfg.artifacts_dir) / "screens")
+    if not src_dir.exists():
+        print(f"[yellow]No images directory at {src_dir}[/yellow]")
+        raise typer.Exit(code=0)
+    # Collect images
+    exts = {".png", ".jpg", ".jpeg", ".gif"}
+    files = [p for p in src_dir.iterdir() if p.is_file() and p.suffix.lower() in exts]
+    try:
+        files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    except Exception:
+        files.sort()
+    files = files[: max(0, limit)]
+    # Build HTML
+    out.parent.mkdir(parents=True, exist_ok=True)
+    parts = []
+    parts.append("<html><head><meta charset='utf-8'><title>Screens Gallery</title>")
+    parts.append("<style>body{font-family:system-ui,Segoe UI,Arial,sans-serif;padding:16px} .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px} .card{border:1px solid #ddd;border-radius:6px;padding:8px} .meta{color:#666;font-size:12px}</style>")
+    parts.append("</head><body><h1>Screens Gallery</h1>")
+    parts.append(f"<div class='meta'>Source: {str(src_dir)} | Count: {len(files)}</div>")
+    parts.append("<div class='grid'>")
+    for p in files:
+        rel = os.path.relpath(p, out.parent)
+        try:
+            kb = max(1, p.stat().st_size // 1024)
+            mt = datetime.fromtimestamp(p.stat().st_mtime).isoformat(sep=" ", timespec="seconds")
+        except Exception:
+            kb = 0; mt = ""
+        parts.append("<div class='card'>")
+        parts.append(f"<div><a href='{rel}'><img src='{rel}' style='width:100%;height:auto;border-radius:4px' alt='{p.name}'/></a></div>")
+        parts.append(f"<div class='meta'>{p.name} — {kb} KB — {mt}</div>")
+        parts.append("</div>")
+    parts.append("</div></body></html>")
+    out.write_text("\n".join(parts), encoding="utf-8")
+    print(f"[green]Wrote[/green] {out}")
+
+
+@report_app.command("manifest")
+def report_manifest_cmd(
+    scan_dir: Path = typer.Option(Path("Docs/status"), "--dir", help="Directory to inventory (non-recursive)"),
+    out: Path = typer.Option(Path("Docs/status/manifest.json"), help="Output JSON path"),
+) -> None:
+    import math
+    from datetime import datetime
+    if not scan_dir.exists():
+        print(f"[yellow]No directory at {scan_dir}[/yellow]")
+        raise typer.Exit(code=0)
+    files = []
+    total_bytes = 0
+    for p in sorted(scan_dir.iterdir()):
+        if not p.is_file():
+            continue
+        try:
+            st = p.stat()
+            size = int(st.st_size)
+            total_bytes += size
+            files.append({
+                "name": p.name,
+                "size_bytes": size,
+                "size_kb": max(1, size // 1024),
+                "mtime_iso": datetime.fromtimestamp(st.st_mtime).isoformat(sep=" ", timespec="seconds"),
+            })
+        except Exception:
+            continue
+    rep = {
+        "dir": str(scan_dir),
+        "total_files": len(files),
+        "total_kb": max(1, total_bytes // 1024),
+        "files": files,
+    }
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(rep, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"[green]Wrote[/green] {out}")
+
+
+@report_app.command("version")
+def report_version_cmd(
+    out: Path = typer.Option(Path("Docs/status/version.json"), help="Output JSON path"),
+) -> None:
+    from datetime import datetime
+    import platform
+    import subprocess
+    import tomllib
+    # Timestamp and python
+    info: Dict[str, Any] = {
+        "timestamp": datetime.now().isoformat(sep=" ", timespec="seconds"),
+        "python_version": platform.python_version(),
+    }
+    # Project version
+    version = None
+    try:
+        from importlib.metadata import version as _pkg_version
+        version = _pkg_version('x-in-memory-bot')
+    except Exception:
+        pass
+    if not version:
+        try:
+            # fallback read from pyproject.toml
+            pyproj = Path('pyproject.toml')
+            if pyproj.exists():
+                data = tomllib.loads(pyproj.read_text(encoding='utf-8'))
+                version = data.get('project', {}).get('version')
+        except Exception:
+            version = None
+    info["project_version"] = version
+    # Git info (best-effort)
+    def _git(cmd: list[str]) -> str | None:
+        try:
+            return subprocess.check_output(cmd, stderr=subprocess.DEVNULL).decode().strip()
+        except Exception:
+            return None
+    info["git_commit"] = _git(['git','rev-parse','HEAD'])
+    info["git_branch"] = _git(['git','rev-parse','--abbrev-ref','HEAD'])
+    info["git_short"] = _git(['git','rev-parse','--short','HEAD'])
+    # Environment summary
+    cfg = Config.from_env()
+    info["profile"] = cfg.profile_name
+    info["repo_root"] = str(Path('.').resolve())
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(info, ensure_ascii=False, indent=2), encoding='utf-8')
+    print(f"[green]Wrote[/green] {out}")
+
+
 @results_app.command("last")
-def results_last(index: Path = Path("artifacts/results/index.jsonl")) -> None:
-    if not index.exists():
+def results_last(index: Optional[Path] = None) -> None:
+    cfg = Config.from_env()
+    idx = index or (cfg.report_html_outdir / "index.jsonl")
+    if not idx.exists():
         print("[yellow]No index.jsonl found.[/yellow]")
         raise typer.Exit(code=0)
-    lines = index.read_text(encoding="utf-8").strip().splitlines()
+    lines = idx.read_text(encoding="utf-8").strip().splitlines()
     if not lines:
         print("[yellow]Index is empty.[/yellow]")
         raise typer.Exit(code=0)
@@ -1444,13 +2110,15 @@ def results_last(index: Path = Path("artifacts/results/index.jsonl")) -> None:
 
 
 @results_app.command("tail")
-def results_tail(index: Path = Path("artifacts/results/index.jsonl"), n: int = typer.Option(10, help="Lines from end"), action: str = typer.Option("", help="Filter by action")) -> None:
-    if not index.exists():
+def results_tail(index: Optional[Path] = None, n: int = typer.Option(10, help="Lines from end"), action: str = typer.Option("", help="Filter by action")) -> None:
+    cfg = Config.from_env()
+    idx = index or (cfg.report_html_outdir / "index.jsonl")
+    if not idx.exists():
         print("[yellow]No index.jsonl found.[/yellow]")
         raise typer.Exit(code=0)
     import json
     from rich import print as rprint
-    lines = index.read_text(encoding="utf-8").strip().splitlines()
+    lines = idx.read_text(encoding="utf-8").strip().splitlines()
     sel = []
     for line in reversed(lines):
         if len(sel) >= n:
@@ -1463,6 +2131,80 @@ def results_tail(index: Path = Path("artifacts/results/index.jsonl"), n: int = t
         except Exception:
             continue
     rprint(list(reversed(sel)))
+
+
+@results_app.command("rebuild-index")
+def results_rebuild_index(
+    src: Optional[Path] = typer.Option(None, help="Directory to scan for result JSONs (defaults to cfg.report_html_outdir)"),
+    out: Optional[Path] = typer.Option(None, help="Output index.jsonl (defaults to <outdir>/index.jsonl)"),
+) -> None:
+    import time
+    cfg = Config.from_env()
+    outdir = Path(src) if src else Path(cfg.report_html_outdir)
+    if not outdir.exists():
+        print(f"[yellow]No results dir at {outdir}[/yellow]")
+        raise typer.Exit(code=0)
+    candidates = []
+    for p in sorted(outdir.glob('*.json')):
+        if p.name in {"index.jsonl", "latest.json"}:
+            continue
+        if p.name.endswith("report.json"):
+            continue
+        candidates.append(p)
+    lines = []
+    for p in candidates:
+        try:
+            data = json.loads(p.read_text(encoding='utf-8'))
+            ts = int(data.get('ts') or p.stat().st_mtime)
+            action = str(data.get('action') or 'unknown')
+            success = bool(data.get('success', True))
+            meta = data.get('meta') or {}
+            lines.append(json.dumps({"ts": ts, "action": action, "success": success, "meta": meta}))
+        except Exception:
+            # fallback: minimal record with mtime
+            ts = int(p.stat().st_mtime)
+            lines.append(json.dumps({"ts": ts, "action": "unknown", "success": True, "meta": {"source": p.name}}))
+    outpath = out or (outdir / 'index.jsonl')
+    outpath.parent.mkdir(parents=True, exist_ok=True)
+    outpath.write_text("\n".join(lines) + ("\n" if lines else ""), encoding='utf-8')
+    print(f"[green]Wrote[/green] {outpath} (records={len(lines)})")
+
+
+@results_app.command("prune")
+def results_prune(
+    days: int = typer.Option(14, help="Delete artifacts older than this many days"),
+    dry_run: bool = typer.Option(False, help="Show what would be deleted without removing"),
+    out_dir: Optional[Path] = typer.Option(None, help="Results directory (defaults to cfg.report_html_outdir)"),
+) -> None:
+    import time
+    cfg = Config.from_env()
+    root = Path(out_dir) if out_dir else Path(cfg.report_html_outdir)
+    if not root.exists():
+        print(f"[yellow]No results dir at {root}[/yellow]")
+        raise typer.Exit(code=0)
+    cutoff = time.time() - days * 86400
+    pinned = {"index.jsonl", "latest.json", "report.html"}
+    deleted = []
+    kept = []
+    for p in root.iterdir():
+        if p.is_dir():
+            kept.append(str(p))
+            continue
+        if p.name in pinned:
+            kept.append(str(p))
+            continue
+        try:
+            if p.stat().st_mtime < cutoff:
+                if dry_run:
+                    deleted.append(str(p))
+                else:
+                    p.unlink()
+                    deleted.append(str(p))
+            else:
+                kept.append(str(p))
+        except Exception:
+            kept.append(str(p))
+    print(json.dumps({"dir": str(root), "days": days, "dry_run": dry_run, "deleted": deleted, "kept": kept}, ensure_ascii=False, indent=2))
 
 @vtermd_app.command("start")
 def vtermd_start(

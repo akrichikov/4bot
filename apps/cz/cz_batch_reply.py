@@ -386,10 +386,12 @@ async def main():
         batch_log["error"] = str(e)
 
     # Save log
-    log_path = Path("logs/cz_batch_log.json")
-    log_path.parent.mkdir(exist_ok=True)
+    from xbot.utils import log_file
+    from xbot.config import Config
+    cfg = Config.from_env()
+    log_path = log_file(cfg, 'reports', 'cz_batch_log.json')
 
-    with open(log_path, 'w') as f:
+    with open(log_path, 'w', encoding='utf-8') as f:
         json.dump(batch_log, f, indent=2)
 
 

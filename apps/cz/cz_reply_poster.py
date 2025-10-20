@@ -16,7 +16,7 @@ from xbot.config import Config
 from xbot.safety import guardrail
 from xbot.profiles import storage_state_path
 from xbot.ratelimit import RateLimiter
-from xbot.utils import LRUSet
+from xbot.utils import LRUSet, log_file
 import hashlib
 
 logging.basicConfig(
@@ -103,9 +103,9 @@ class ReplyPoster:
                 if not (has_profile or has_compose) or has_login:
                     logger.error("❌ Not authenticated in ephemeral context (Safari cookies). Aborting reply.")
                     # Save a screenshot for diagnostics
-                    from pathlib import Path as _P
-                    _P('logs/screenshots').mkdir(parents=True, exist_ok=True)
-                    await page.screenshot(path='logs/screenshots/ephemeral_not_logged_in.png')
+                    cfg2 = Config.from_env()
+                    shot = log_file(cfg2, 'screenshots', 'ephemeral_not_logged_in.png')
+                    await page.screenshot(path=str(shot))
                     return False
             except Exception:
                 pass
@@ -196,9 +196,9 @@ class ReplyPoster:
                     # Attempt to capture last page if available
                     pages = context.pages
                     if pages:
-                        from pathlib import Path as _P
-                        _P('logs/screenshots').mkdir(parents=True, exist_ok=True)
-                        await pages[-1].screenshot(path='logs/screenshots/ephemeral_last.png')
+                        cfg3 = Config.from_env()
+                        last = log_file(cfg3, 'screenshots', 'ephemeral_last.png')
+                        await pages[-1].screenshot(path=str(last))
                 except Exception:
                     pass
                 await context.close()

@@ -5,8 +5,9 @@
 
 echo "🚀 4Bot Launcher - Starting setup..."
 
-# Set working directory
-cd /Users/doctordre/projects/4bot
+# Resolve repo root relative to this script (scripts/shell -> repo)
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$REPO_ROOT"
 
 # Create profile directories for 4botbsc
 echo "📁 Creating profile directories..."
@@ -23,7 +24,7 @@ fi
 
 # Setup RabbitMQ exchange and queues
 echo "📡 Setting up RabbitMQ infrastructure..."
-python rabbitmq_setup.py
+python "$REPO_ROOT/scripts/rabbitmq/rabbitmq_setup.py"
 
 # Kill any existing monitoring processes
 echo "🔄 Cleaning up existing processes..."
@@ -32,7 +33,7 @@ pkill -f "quick_monitor.py" 2>/dev/null
 pkill -f "notification_rabbitmq_bridge.py" 2>/dev/null
 
 # Export environment variables
-export PYTHONPATH="/Users/doctordre/projects/4bot:$PYTHONPATH"
+export PYTHONPATH="$REPO_ROOT:$PYTHONPATH"
 export X_USER="4botbsc@gmail.com"
 export BOT_PROFILE="4botbsc"
 
@@ -53,4 +54,4 @@ echo "   Press Ctrl+C to stop"
 echo ""
 
 # Launch the orchestrator with logging
-python 4bot_orchestrator.py 2>&1 | tee "$LOG_FILE"
+python "$REPO_ROOT/scripts/orchestrator/4bot_orchestrator.py" 2>&1 | tee "$LOG_FILE"

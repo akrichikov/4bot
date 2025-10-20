@@ -3,6 +3,7 @@ from __future__ import annotations
 import html
 import json
 from datetime import datetime, date
+import os
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -108,7 +109,12 @@ def html_report(
             if isinstance(artifacts, dict) and "screenshot" in artifacts:
                 thumb = artifacts.get("screenshot")
             if thumb:
-                parts.append(f"<div><img src='{html.escape(str(thumb))}' alt='screenshot' style='max-width:300px;border:1px solid #ccc;border-radius:4px' /></div>")
+                try:
+                    tpath = Path(str(thumb))
+                    rel = os.path.relpath(tpath, out_path.parent)
+                except Exception:
+                    rel = str(thumb)
+                parts.append(f"<div><img src='{html.escape(rel)}' alt='screenshot' style='max-width:300px;border:1px solid #ccc;border-radius:4px' /></div>")
             # direct link if status_id present in meta
             status_id = meta.get('status_id') if isinstance(meta, dict) else None
             if status_id:
@@ -153,8 +159,17 @@ def _summaries_by_day(index_path: Path) -> Dict[str, Dict[str, Any]]:
 def daily_index(outdir: Path) -> Path:
     daily = outdir / "daily"
     daily.mkdir(parents=True, exist_ok=True)
-    items = sorted(daily.glob("*.html"))
+    # Ensure per-day reports exist for days present in index.jsonl
     sums = _summaries_by_day(outdir / "index.jsonl")
+    for day in list(sums.keys()):
+        page = daily / f"{day}.html"
+        if not page.exists():
+            try:
+                html_report(outdir / "index.jsonl", page, date_str=day)
+            except Exception:
+                # ignore generation errors; day will simply be skipped
+                pass
+    items = sorted(daily.glob("*.html"))
 
     html_parts: List[str] = []
     html_parts.append("<html><head><meta charset='utf-8'><title>Daily Reports</title>")
