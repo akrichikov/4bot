@@ -887,9 +887,248 @@ def vterm_http(
     audit_log: Path | None = typer.Option(None, help="Append JSONL audit here"),
     audit: bool = typer.Option(False, help="Enable request audit logging"),
     admin_token: str | None = typer.Option(None, help="Admin token for /admin/shutdown"),
+    cors: bool = typer.Option(False, help="Enable permissive CORS for browser access"),
+    client_max_size: int = typer.Option(8 * 1024 * 1024, help="Max request size in bytes"),
+    allow: List[str] = typer.Option([], "--allow", help="Regex allowlist; empty allows all"),
+    deny: List[str] = typer.Option([], "--deny", help="Regex denylist; deny takes precedence"),
+    max_queue: int | None = typer.Option(None, help="Max in-flight jobs (pending+running)"),
 ) -> None:
-    server = VTermHTTPServer(host=host, port=port, token=token, admin_token=admin_token, rate_qps=rate_qps, rate_burst=rate_burst, audit_log=audit_log, audit_enabled=audit)
+    from inspect import signature
+    params = signature(VTermHTTPServer).parameters
+    kwargs = dict(
+        host=host,
+        port=port,
+        token=token,
+        admin_token=admin_token,
+        rate_qps=rate_qps,
+        rate_burst=rate_burst,
+        audit_log=audit_log,
+        audit_enabled=audit,
+    )
+    if "allow" in params:
+        kwargs["allow"] = allow or None
+    if "deny" in params:
+        kwargs["deny"] = deny or None
+    if "max_queue" in params:
+        kwargs["max_queue"] = max_queue
+    server = VTermHTTPServer(**kwargs)
     server.run()
+
+
+@vterm_app.command("info")
+def vterm_info(
+    base: str = typer.Option("http://127.0.0.1:9876", help="VTerm HTTP base URL"),
+    token: str | None = typer.Option(None, help="X-VTerm-Token for auth (optional)"),
+    timeout: float = typer.Option(3.0, help="Network timeout in seconds"),
+    out: Path | None = typer.Option(None, help="If set, write JSON to this file"),
+) -> None:
+    """Fetch /version and /config from a running VTerm HTTP server and print combined JSON.
+
+    Exits with code 1 if the server is unreachable or returns non-200.
+    """
+    import asyncio
+    import aiohttp
+    import json as _json
+
+    async def _fetch() -> dict:
+        headers = {"X-VTerm-Token": token} if token else None
+        out: dict = {"base": base}
+        to = aiohttp.ClientTimeout(total=timeout)
+        async with aiohttp.ClientSession(headers=headers, timeout=to) as sess:
+            async with sess.get(f"{base}/version") as r1:
+                if r1.status != 200:
+                    raise RuntimeError(f"/version status {r1.status}")
+                out["version"] = await r1.json()
+            async with sess.get(f"{base}/config") as r2:
+                if r2.status != 200:
+                    raise RuntimeError(f"/config status {r2.status}")
+                out["config"] = await r2.json()
+        return out
+
+    try:
+        data = asyncio.run(_fetch())
+    except Exception as e:
+        typer.echo(f"Error: {e}")
+        raise typer.Exit(code=1)
+
+    text = _json.dumps(data, ensure_ascii=False, indent=2)
+    if out:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(text, encoding="utf-8")
+    else:
+        typer.echo(text)
+
+
+@vterm_app.command("console")
+def vterm_console(
+    base: str = typer.Option("http://127.0.0.1:9876", help="VTerm HTTP base URL"),
+) -> None:
+    """Open the web console in the default browser."""
+    import webbrowser
+    url = base.rstrip('/') + '/console'
+    webbrowser.open(url)
+    typer.echo(f"Opened {url}")
+
+
+@vterm_app.command("wait")
+def vterm_wait(
+    base: str = typer.Option("http://127.0.0.1:9876", help="VTerm HTTP base URL"),
+    ready: bool = typer.Option(False, help="If true, require /ready; otherwise use /health"),
+    timeout: float = typer.Option(10.0, help="Max seconds to wait"),
+    interval: float = typer.Option(0.1, help="Polling interval seconds"),
+) -> None:
+    """Poll /health (or /ready) until available, with timeout."""
+    import time
+    import asyncio
+    import aiohttp
+
+    async def _wait() -> bool:
+        path = '/ready' if ready else '/health'
+        deadline = time.time() + timeout
+        to = aiohttp.ClientTimeout(total=min(timeout, 10.0))
+        async with aiohttp.ClientSession(timeout=to) as sess:
+            while time.time() < deadline:
+                try:
+                    async with sess.get(base.rstrip('/') + path) as r:
+                        if r.status == 200:
+                            return True
+                except Exception:
+                    await asyncio.sleep(interval)
+                else:
+                    await asyncio.sleep(interval)
+        return False
+
+    ok = asyncio.run(_wait())
+    if not ok:
+        typer.echo(f"Timeout waiting for {'ready' if ready else 'health'} at {base}")
+        raise typer.Exit(code=1)
+    typer.echo("ok")
+
+
+@vterm_app.command("curl")
+def vterm_curl(
+    method: str = typer.Argument("GET", help="HTTP method: GET or POST"),
+    path: str = typer.Argument("/health", help="Endpoint path starting with / (e.g., /run)"),
+    base: str = typer.Option("http://127.0.0.1:9876", help="VTerm HTTP base URL"),
+    token: str | None = typer.Option(None, help="X-VTerm-Token for auth (optional)"),
+    data: str | None = typer.Option(None, help="Inline JSON payload for POST"),
+    data_file: Path | None = typer.Option(None, help="Read JSON payload for POST from file"),
+    timeout: float = typer.Option(5.0, help="Network timeout in seconds"),
+) -> None:
+    """Minimal HTTP client for VTerm endpoints (GET/POST). Prints status and body."""
+    import asyncio
+    import aiohttp
+    import json as _json
+
+    async def _run() -> int:
+        url = base.rstrip('/') + (path if path.startswith('/') else '/' + path)
+        headers = {"X-VTerm-Token": token} if token else None
+        to = aiohttp.ClientTimeout(total=timeout)
+        async with aiohttp.ClientSession(headers=headers, timeout=to) as sess:
+            if method.upper() == 'POST':
+                payload = None
+                if data_file and data_file.exists():
+                    payload = _json.loads(data_file.read_text(encoding='utf-8'))
+                elif data:
+                    payload = _json.loads(data)
+                async with sess.post(url, json=payload) as r:
+                    body = await r.text()
+                    typer.echo(f"{r.status}\n{body}")
+                    return 0 if r.status < 400 else 1
+            else:
+                async with sess.get(url) as r:
+                    body = await r.text()
+                    typer.echo(f"{r.status}\n{body}")
+                    return 0 if r.status < 400 else 1
+
+    rc = asyncio.run(_run())
+    if rc != 0:
+        raise typer.Exit(code=rc)
+
+
+@vterm_app.command("admin-restart")
+def vterm_admin_restart(
+    base: str = typer.Option("http://127.0.0.1:9876", help="VTerm HTTP base URL"),
+    admin_token: str = typer.Option(..., help="Admin token for /admin endpoints"),
+    timeout: float = typer.Option(5.0, help="Network timeout in seconds"),
+) -> None:
+    """POST /admin/restart and print JSON result; exit non-zero on error."""
+    import asyncio
+    import aiohttp
+    async def _run() -> int:
+        to = aiohttp.ClientTimeout(total=timeout)
+        async with aiohttp.ClientSession(timeout=to) as sess:
+            async with sess.post(base.rstrip('/') + "/admin/restart", headers={"X-VTerm-Admin": admin_token}) as r:
+                txt = await r.text()
+                typer.echo(txt)
+                return 0 if r.status < 400 else 1
+    rc = asyncio.run(_run())
+    if rc != 0:
+        raise typer.Exit(code=rc)
+
+
+@vterm_app.command("admin-resize")
+def vterm_admin_resize(
+    base: str = typer.Option("http://127.0.0.1:9876", help="VTerm HTTP base URL"),
+    admin_token: str = typer.Option(..., help="Admin token for /admin endpoints"),
+    rows: int = typer.Option(24, help="PTY rows"),
+    cols: int = typer.Option(80, help="PTY cols"),
+    timeout: float = typer.Option(5.0, help="Network timeout in seconds"),
+) -> None:
+    """POST /admin/resize with rows/cols and print JSON; exit non-zero on error."""
+    import asyncio
+    import aiohttp
+    async def _run() -> int:
+        to = aiohttp.ClientTimeout(total=timeout)
+        async with aiohttp.ClientSession(timeout=to) as sess:
+            async with sess.post(
+                base.rstrip('/') + "/admin/resize",
+                headers={"X-VTerm-Admin": admin_token, "content-type": "application/json"},
+                json={"rows": rows, "cols": cols},
+            ) as r:
+                txt = await r.text()
+                typer.echo(txt)
+                return 0 if r.status < 400 else 1
+    rc = asyncio.run(_run())
+    if rc != 0:
+        raise typer.Exit(code=rc)
+
+@vterm_app.command("policy-check")
+def vterm_policy_check(
+    allow: List[str] = typer.Option([], "--allow", help="Regex allowlist; empty allows all"),
+    deny: List[str] = typer.Option([], "--deny", help="Regex denylist; deny takes precedence"),
+    sample: List[str] = typer.Option([], "--sample", help="Sample commands to evaluate"),
+) -> None:
+    """Validate allow/deny regexes and evaluate optional sample commands.
+
+    - Returns JSON: {"ok": true, "allow": [...], "deny": [...], "samples": [{cmd, authorized}...]}
+    - Exit code 1 if any regex fails to compile.
+    """
+    import re
+    import json as _json
+    try:
+        allow_re = [re.compile(p) for p in (allow or [])]
+        deny_re = [re.compile(p) for p in (deny or [])]
+    except re.error as e:
+        typer.echo(_json.dumps({"ok": False, "error": f"regex_error: {e}"}))
+        raise typer.Exit(code=1)
+
+    def _authorize(cmd: str) -> bool:
+        txt = cmd or ""
+        for r in deny_re:
+            if r.search(txt):
+                return False
+        if not allow_re:
+            return True
+        return any(r.search(txt) for r in allow_re)
+
+    out = {
+        "ok": True,
+        "allow": allow,
+        "deny": deny,
+        "samples": [{"cmd": c, "authorized": _authorize(c)} for c in (sample or [])],
+    }
+    typer.echo(_json.dumps(out, ensure_ascii=False))
 
 
 @vterm_app.command("client")

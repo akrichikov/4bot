@@ -98,6 +98,26 @@ brew services start rabbitmq
    - Monitor interval: 30 seconds
 
 ## 🎯 Usage
+### PTY/VTerm Operator Quickstart
+
+The repository includes a hardened, standalone PTY service (ptyterm) and xbot helpers.
+
+Common actions (see `make help-pty`):
+
+- `make pty-http` — start HTTP server (`PTY_PORT`, `PTY_ADMIN` envs)
+- `make vterm-info` — print combined `/version` + `/config`
+- `make vterm-wait` — wait for `/health` (or `/ready` via CLI flag)
+- `make vterm-console` — open the browser console
+- `make vterm-snapshot` — write `Docs/status/vterm_snapshot.json`
+- `make pty-version|pty-config|pty-metrics` — quick endpoint fetches
+
+References:
+
+- `Docs/status/2025-10-20_ptyterm_cli_reference.md` — CLI reference & Makefile cheatsheet
+- `Docs/status/2025-10-20_ptyterm_observability.md` — observability endpoints/examples
+- `Docs/status/2025-10-20_ptyterm_http_policy_and_admin.md` — HTTP policy/admin examples
+- `Docs/status/README.md` — operator docs index
+- `Docs/DEVELOPER_PTYTERM.md` — developer guide for integration
 
 ### Quick Start
 ```bash

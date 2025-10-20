@@ -2,7 +2,7 @@ PY = .venv/bin/python
 PIP = .venv/bin/pip
 
 .PHONY: venv install dev lint format test health cz-proxy cz-daemon notifications start-all stop-all hygiene pre-commit-install pre-commit-run site site-open health-strict status-index repo-layout guardrails schedule-sim schedule-run-sim status-aggregate site-all paths-show paths-json paths-doctor secrets-guard site-clean site-reset paths-env paths-md paths-export paths-validate paths-init results-prune results-rebuild-index report-daily-index report-version
-.PHONY: submodules-init deps-pty
+.PHONY: help submodules-init deps-pty deps verify-pty deps-all pty-http pty-http-safe pty-queue-run pty-queue-wait pty-admin-restart pty-admin-resize pty-version pty-config pty-metrics vterm-info vterm-wait vterm-console vterm-snapshot vterm-admin-restart vterm-admin-resize
 
 venv:
 	python -m venv .venv
@@ -157,6 +157,108 @@ report-daily-index:
 report-version:
 	$(PY) -m xbot.cli report version || true
 
+# ---------------- ptyterm convenience -----------------
+PTY_PORT ?= 9876
+PTY_ADMIN ?= adm
+
+deps: submodules-init deps-pty
+
+verify-pty:
+	$(PY) -m xbot.cli deps pty-verify
+
+deps-all: deps verify-pty
+
+pty-http:
+	$(PY) -m ptyterm vterm http --port $(PTY_PORT) --admin-token $(PTY_ADMIN)
+
+# Conservative policy preset: deny destructive commands, limit queue to 4, enable audit
+pty-http-safe:
+	$(PY) -m ptyterm vterm http \
+		--port $(PTY_PORT) \
+		--deny 'rm' \
+		--deny 'shutdown' \
+		--deny 'reboot' \
+		--deny ':\(\)\{:\|:&\};:' \
+		--max-queue 4 \
+		--audit \
+		--admin-token $(PTY_ADMIN)
+
+pty-queue-run:
+	$(PY) -m ptyterm queue run echo hello --target http://127.0.0.1:$(PTY_PORT)
+
+pty-queue-wait:
+	$(PY) -m ptyterm queue wait 1 --target http://127.0.0.1:$(PTY_PORT) --timeout 5
+
+pty-admin-restart:
+	python - <<'PY'
+import urllib.request, os
+req = urllib.request.Request(f"http://127.0.0.1:{os.environ.get('PTY_PORT','9876')}/admin/restart", method='POST', headers={'X-VTerm-Admin': os.environ.get('PTY_ADMIN','adm')})
+print(urllib.request.urlopen(req).read().decode('utf-8'))
+PY
+
+pty-admin-resize:
+	python - <<'PY'
+import urllib.request, json, os
+port = os.environ.get('PTY_PORT','9876')
+data = json.dumps({'rows': 24, 'cols': 80}).encode('utf-8')
+req = urllib.request.Request(f"http://127.0.0.1:{port}/admin/resize", data=data, method='POST', headers={'content-type':'application/json','X-VTerm-Admin': os.environ.get('PTY_ADMIN','adm')})
+print(urllib.request.urlopen(req).read().decode('utf-8'))
+PY
+
+pty-version:
+	python - <<'PY'
+import urllib.request, os
+port = os.environ.get('PTY_PORT','9876')
+print(urllib.request.urlopen(f"http://127.0.0.1:{port}/version").read().decode('utf-8'))
+PY
+
+pty-config:
+	python - <<'PY'
+import urllib.request, os
+port = os.environ.get('PTY_PORT','9876')
+print(urllib.request.urlopen(f"http://127.0.0.1:{port}/config").read().decode('utf-8'))
+PY
+
+pty-metrics:
+	python - <<'PY'
+import urllib.request, os
+port = os.environ.get('PTY_PORT','9876')
+print(urllib.request.urlopen(f"http://127.0.0.1:{port}/metrics").read().decode('utf-8')[:1000])
+PY
+
+vterm-info:
+	$(PY) -m xbot.cli vterm info --base http://127.0.0.1:$(PTY_PORT)
+
+vterm-wait:
+	$(PY) -m xbot.cli vterm wait --base http://127.0.0.1:$(PTY_PORT)
+
+vterm-console:
+	$(PY) -m xbot.cli vterm console --base http://127.0.0.1:$(PTY_PORT)
+
+vterm-snapshot:
+	VT_BASE=http://127.0.0.1:$(PTY_PORT) $(PY) scripts/monitor/vterm_snapshot.py
+
+vterm-admin-restart:
+	$(PY) -m xbot.cli vterm admin-restart --base http://127.0.0.1:$(PTY_PORT) --admin-token $(PTY_ADMIN)
+
+vterm-admin-resize:
+	$(PY) -m xbot.cli vterm admin-resize --base http://127.0.0.1:$(PTY_PORT) --admin-token $(PTY_ADMIN) --rows 24 --cols 80
+
+help-pty:
+	@echo "PTY helpers (set PTY_PORT, PTY_ADMIN as needed)"; \
+	echo "  make pty-http             # start HTTP server"; \
+	echo "  make pty-queue-run        # enqueue echo hello"; \
+	echo "  make pty-queue-wait       # wait for job 1"; \
+	echo "  make pty-admin-restart    # restart shell (admin token)"; \
+	echo "  make pty-admin-resize     # resize PTY 80x24"; \
+	echo "  make pty-version          # GET /version"; \
+	echo "  make pty-config           # GET /config"; \
+	echo "  make pty-metrics          # GET /metrics (truncated)"; \
+	echo "  make vterm-info           # combined /version + /config via xbot"; \
+	echo "  make vterm-wait           # wait for /health"; \
+	echo "  make vterm-console        # open web console"; \
+	echo "  make vterm-snapshot       # write Docs/status/vterm_snapshot.json";
+
 # Full site pipeline: health, optional guardrails/scheduler, aggregated status, index
 # Example: make site-all GUARD_IN=Docs/status/sample_replies.txt PROFILES="a:1:5;b:2:6"
 site-all:
@@ -222,3 +324,10 @@ results-prune:
 
 results-rebuild-index:
 	$(PY) -m xbot.cli results rebuild-index || true
+help:
+	@echo "4bot Make targets:"; \
+	echo "  make help-pty         # list PTY/VTerm operator helpers"; \
+	echo "  make deps-all         # init submodules + install ptyterm + verify"; \
+	echo "  make site            # build status site (see Docs/status)"; \
+	echo "  make test            # run test suite"; \
+	echo "  make pty-http-safe   # start HTTP with safe policy preset (see Docs/status/2025-10-20_ptyterm_presets.md)";

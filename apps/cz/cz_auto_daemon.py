@@ -32,7 +32,7 @@ from xbot.browser import Browser
 from xbot.flows.login import login_if_needed
 from xbot.event_interceptor import EventInterceptor, PostEvent
 from xbot.facade import XBot
-from xbot.vterm_http import VTermHTTPClient
+from apps.cz.cz_vterm_rabbitmq_daemon import VTermHTTPClient
 
 logging.basicConfig(
     level=logging.INFO,

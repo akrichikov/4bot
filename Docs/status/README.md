@@ -1,12 +1,13 @@
-# Status Artifacts
+# Operator Docs Index
 
-- Generate health reports and index:
-  - `make system-health-html` – writes `Docs/status/system_health.(json,html)`
-  - `make status-index` – writes `Docs/status/index.html`
-  - `make site` – runs both of the above
-  - `make site-open` – opens the status index in your default browser
+Quick links for operating the PTY/VTerm service and related tooling:
 
-- Strict health (non-blocking):
-  - `make health-strict` – runs `xbot health system --strict` and writes JSON; returns non-zero if any gate fails (guarded with `|| true` in the Makefile to avoid breaking your shell).
+- 2025-10-20_ptyterm_cli_reference.md — xbot vterm subcommands and Makefile cheatsheet
+- 2025-10-20_ptyterm_observability.md — observability endpoints (/version, /config, /metrics, X-Request-ID)
+- 2025-10-20_ptyterm_http_policy_and_admin.md — allow/deny policy, capacity, and admin endpoints
+- 2025-10-20_ptyterm_presets.md — safe-start preset and example payloads
 
-These commands operate only within the repository and do not use /tmp. The index is non-recursive and lists only top-level HTML/JSON files in `Docs/status`.
+Developer Guide:
+
+- ../DEVELOPER_PTYTERM.md — bootstrap, CLI helpers, snapshots
+

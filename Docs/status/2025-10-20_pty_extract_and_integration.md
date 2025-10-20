@@ -6,7 +6,7 @@
   - `tree -a -I ".git|.venv|__pycache__|.pytest_cache|node_modules|dist|build|*.egg-info" -n -L 2` (ok)
 - PTY/VTerm code and docs identified (single source truths):
   - Code: `xbot/vterm.py`, `xbot/vtermd.py`, `xbot/vterm_http.py`, `xbot/vterm_client.py`
-  - Assets: `xbot/static/vterm_console.html`, `xbot/static/vterm_console.js`
+- Assets now live only in `ptyterm/static/{vterm_console.html,vterm_console.js}` (4bot duplicates removed on 2025-10-20 to enforce single source of truth)
   - CLI integration (re-exports): `xbot/cli.py` uses `vterm`/`vtermd`/`vterm_http`
   - Apps (consumers): `apps/cz/vterm_request_proxy_manager.py`, `apps/cz/vterm_cz_integration.py`, `apps/cz/cz_vterm_rabbitmq_daemon.py`
   - Tests: all `tests/test_vterm*` and `tests/test_vtermd*`, plus HTTP/WS queue tests
@@ -65,4 +65,3 @@
   - Submodule added and integrated ✅
   - Tests (vterm scope) pass with 0 errors/warnings ✅
   - Pending: push new repo to remote (needs URL) ⏸️
-
