@@ -25,6 +25,7 @@ jobs:
           pip install -e .[dev]
       - name: Verify ptyterm version
         run: |
+          pip install packaging
           python - <<'PY'
 import importlib.metadata as im
 try:
@@ -70,6 +71,7 @@ PY
           pip install -e .[dev]
       - name: Verify ptyterm version
         run: |
+          pip install packaging
           python - <<'PY'
 import importlib.metadata as im
 try:
