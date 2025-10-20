@@ -2303,7 +2303,7 @@ def _run(cmd: list[str], cwd: Path | None = None) -> int:
 @deps_app.command("pty-remote-sync")
 def deps_pty_remote_sync(
     url: str = typer.Option(..., help="Remote Git URL for the ptyterm repository (ssh/https)"),
-    pty_repo: Path = typer.Option(Path("/Users/doctordre/projects/pty"), help="Local ptyterm repo path"),
+    pty_repo: Path = typer.Option(Path("submodules/ptyterm"), help="Local ptyterm repo path (defaults to submodule)"),
     submodule_path: Path = typer.Option(Path("submodules/ptyterm"), help="Submodule path in this repo"),
 ) -> None:
     """Set ptyterm remote to URL, push main, and update submodule URL in this repo."""

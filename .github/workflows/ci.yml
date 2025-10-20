@@ -21,7 +21,7 @@ jobs:
         run: |
           python -m pip install -U pip wheel setuptools
           # Install ptyterm from submodule
-          if [ -d submodules/ptyterm ]; then pip install -e submodules/ptyterm; fi
+          if [ -d submodules/ptyterm ]; then pip install -e submodules/ptyterm; else pip install -r requirements-ptyterm.txt || true; fi
           pip install -e .[dev]
       - name: Verify ptyterm version
         run: |
@@ -66,7 +66,7 @@ PY
         run: |
           python -m pip install -U pip wheel setuptools
           # Install ptyterm from submodule
-          if [ -d submodules/ptyterm ]; then pip install -e submodules/ptyterm; fi
+          if [ -d submodules/ptyterm ]; then pip install -e submodules/ptyterm; else pip install -r requirements-ptyterm.txt || true; fi
           pip install -e .[dev]
       - name: Verify ptyterm version
         run: |
