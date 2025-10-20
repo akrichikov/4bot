@@ -38,6 +38,9 @@ from .profiles import (
 from .vterm import VTerm
 from .vtermd import VTermDaemon, client_request, DEFAULT_SOCKET
 from .vterm_http import VTermHTTPServer
+import importlib.metadata
+import subprocess
+import sys
 from .auto_responder import ClaudeGen
 from apps.cz.cz_vterm_rabbitmq_daemon import CZVTermDaemon
 import sys
@@ -66,6 +69,8 @@ app.add_typer(profile_app, name="profile", help="Manage named profiles (sessions
 app.add_typer(mq_app, name="mq", help="RabbitMQ utilities")
 app.add_typer(paths_app, name="paths", help="Show resolved directories and key paths")
 app.add_typer(site_app, name="site", help="Build/clean/open status site")
+deps_app = typer.Typer(no_args_is_help=True, add_completion=False)
+app.add_typer(deps_app, name="deps", help="Dependency helpers (ptyterm)")
 vterm_app = typer.Typer(no_args_is_help=True, add_completion=False)
 app.add_typer(vterm_app, name="vterm", help="In-memory PTY virtual terminal")
 queue_app = typer.Typer(no_args_is_help=True, add_completion=False)
@@ -2251,6 +2256,44 @@ def vtermd_exec(
 
 # attach vtermd subapp after commands are registered
 app.add_typer(vtermd_app, name="vtermd", help="VTerm UNIX-socket daemon (singleton PTY)")
+
+
+# ----------------------------- deps: ptyterm ------------------------------
+@deps_app.command("pty-verify")
+def deps_pty_verify() -> None:
+    """Verify that ptyterm is importable and print version info."""
+    try:
+        import ptyterm  # type: ignore
+        ver = importlib.metadata.version("ptyterm")
+        from rich import print as rprint
+        rprint({"package": "ptyterm", "version": ver, "module": getattr(ptyterm, "__name__", "ptyterm")})
+    except Exception as e:
+        raise typer.Exit(code=1) from e
+
+
+@deps_app.command("pty-install")
+def deps_pty_install(
+    path: Optional[Path] = typer.Option(None, help="Explicit path to ptyterm source"),
+) -> None:
+    """Install ptyterm in editable mode from submodule, sibling, or explicit path."""
+    candidates: list[Path] = []
+    if path:
+        candidates.append(path)
+    candidates.append(Path("submodules/ptyterm"))
+    candidates.append(Path("../pty"))
+    chosen: Optional[Path] = None
+    for c in candidates:
+        if (c / "pyproject.toml").exists():
+            chosen = c
+            break
+    if not chosen:
+        typer.echo("No ptyterm source found. Provide --path or init submodule.")
+        raise typer.Exit(code=2)
+    cmd = [sys.executable, "-m", "pip", "install", "-e", str(chosen)]
+    rc = subprocess.call(cmd)
+    if rc != 0:
+        raise typer.Exit(code=rc)
+    deps_pty_verify()
 @app.command("reply-notmine")
 def reply_notmine(
     profile: str = typer.Option("4botbsc", help="Profile name for 4bot account"),
