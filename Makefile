@@ -2,6 +2,7 @@ PY = .venv/bin/python
 PIP = .venv/bin/pip
 
 .PHONY: venv install dev lint format test health cz-proxy cz-daemon notifications start-all stop-all hygiene pre-commit-install pre-commit-run site site-open health-strict status-index repo-layout guardrails schedule-sim schedule-run-sim status-aggregate site-all paths-show paths-json paths-doctor secrets-guard site-clean site-reset paths-env paths-md paths-export paths-validate paths-init results-prune results-rebuild-index report-daily-index report-version
+ .PHONY: submodules-init deps-pty
 
 venv:
 	python -m venv .venv
@@ -14,6 +15,24 @@ install: venv
 dev: venv
 	$(PIP) install . '.[dev]'
 	$(PY) -m playwright install chromium
+
+# Initialize and update submodules (required for ptyterm)
+submodules-init:
+	git submodule update --init --recursive
+
+# Install ptyterm from submodule if present; otherwise attempt sibling ../pty
+# Usage: make deps-pty
+deps-pty: venv
+	@if [ -d "submodules/ptyterm" ]; then \
+		echo "Installing ptyterm from submodules/ptyterm"; \
+		$(PIP) install -e submodules/ptyterm; \
+	elif [ -f "../pty/pyproject.toml" ]; then \
+		echo "Installing ptyterm from ../pty"; \
+		$(PIP) install -e ../pty; \
+	else \
+		echo "ERROR: ptyterm source not found. Run 'make submodules-init' or place sibling ../pty repo."; \
+		exit 1; \
+	fi
 
 lint:
 	$(PY) -m ruff check .
