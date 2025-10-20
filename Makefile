@@ -40,6 +40,15 @@ pty-remote-sync:
 	@if [ -z "$(URL)" ]; then echo "Usage: make pty-remote-sync URL=<remote>"; exit 1; fi
 	$(PY) -m xbot.cli deps pty-remote-sync --url "$(URL)"
 
+# Build ptyterm wheel/sdist into dist/ptyterm
+pty-build:
+	$(PIP) install build
+	@if [ -d submodules/ptyterm ]; then \
+		$(PY) -m build submodules/ptyterm -o dist/ptyterm; \
+	else \
+		echo "submodules/ptyterm not found; run 'make submodules-init'"; exit 2; \
+	fi
+
 lint:
 	$(PY) -m ruff check .
 

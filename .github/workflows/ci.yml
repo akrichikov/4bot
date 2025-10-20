@@ -23,6 +23,25 @@ jobs:
           # Install ptyterm from submodule
           if [ -d submodules/ptyterm ]; then pip install -e submodules/ptyterm; fi
           pip install -e .[dev]
+      - name: Verify ptyterm version
+        run: |
+          python - <<'PY'
+import importlib.metadata as im
+try:
+    v = im.version('ptyterm')
+    print({'ptyterm_version': v})
+    # accept 0.1.x and above
+    from packaging.version import Version
+    assert Version(v) >= Version('0.1.0')
+except Exception as e:
+    raise SystemExit(f"ptyterm version check failed: {e}")
+PY
+      - name: Build ptyterm artifacts
+        run: |
+          python -m pip install build
+          if [ -d submodules/ptyterm ]; then \
+            python -m build submodules/ptyterm -o dist/ptyterm; \
+          fi
       - name: Ruff (lint)
         run: ruff . --output-format=github
       - name: Black (format check)
@@ -49,6 +68,18 @@ jobs:
           # Install ptyterm from submodule
           if [ -d submodules/ptyterm ]; then pip install -e submodules/ptyterm; fi
           pip install -e .[dev]
+      - name: Verify ptyterm version
+        run: |
+          python - <<'PY'
+import importlib.metadata as im
+try:
+    v = im.version('ptyterm')
+    print({'ptyterm_version': v})
+    from packaging.version import Version
+    assert Version(v) >= Version('0.1.0')
+except Exception as e:
+    raise SystemExit(f"ptyterm version check failed: {e}")
+PY
       - name: Install Playwright (optional)
         run: |
           python -m playwright install chromium
