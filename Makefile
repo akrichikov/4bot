@@ -2,7 +2,7 @@ PY = .venv/bin/python
 PIP = .venv/bin/pip
 
 .PHONY: venv install dev lint format test health cz-proxy cz-daemon notifications start-all stop-all hygiene pre-commit-install pre-commit-run site site-open health-strict status-index repo-layout guardrails schedule-sim schedule-run-sim status-aggregate site-all paths-show paths-json paths-doctor secrets-guard site-clean site-reset paths-env paths-md paths-export paths-validate paths-init results-prune results-rebuild-index report-daily-index report-version
- .PHONY: submodules-init deps-pty
+.PHONY: submodules-init deps-pty
 
 venv:
 	python -m venv .venv
@@ -33,6 +33,12 @@ deps-pty: venv
 		echo "ERROR: ptyterm source not found. Run 'make submodules-init' or place sibling ../pty repo."; \
 		exit 1; \
 	fi
+
+# Sync ptyterm remote and submodule URL
+# Usage: make pty-remote-sync URL=https://github.com/org/ptyterm.git
+pty-remote-sync:
+	@if [ -z "$(URL)" ]; then echo "Usage: make pty-remote-sync URL=<remote>"; exit 1; fi
+	$(PY) -m xbot.cli deps pty-remote-sync --url "$(URL)"
 
 lint:
 	$(PY) -m ruff check .

@@ -2294,6 +2294,42 @@ def deps_pty_install(
     if rc != 0:
         raise typer.Exit(code=rc)
     deps_pty_verify()
+
+
+def _run(cmd: list[str], cwd: Path | None = None) -> int:
+    return subprocess.call(cmd, cwd=str(cwd) if cwd else None)
+
+
+@deps_app.command("pty-remote-sync")
+def deps_pty_remote_sync(
+    url: str = typer.Option(..., help="Remote Git URL for the ptyterm repository (ssh/https)"),
+    pty_repo: Path = typer.Option(Path("/Users/doctordre/projects/pty"), help="Local ptyterm repo path"),
+    submodule_path: Path = typer.Option(Path("submodules/ptyterm"), help="Submodule path in this repo"),
+) -> None:
+    """Set ptyterm remote to URL, push main, and update submodule URL in this repo."""
+    if not pty_repo.exists() or not (pty_repo / ".git").exists():
+        typer.echo(f"ERROR: pty repo not found at {pty_repo}")
+        raise typer.Exit(code=2)
+    # Ensure remote
+    _run(["git", "remote", "add", "origin", url], cwd=pty_repo)
+    rc = _run(["git", "remote", "set-url", "origin", url], cwd=pty_repo)
+    if rc != 0:
+        raise typer.Exit(code=rc)
+    # Push main to remote
+    rc = _run(["git", "push", "-u", "origin", "main"], cwd=pty_repo)
+    if rc != 0:
+        typer.echo("WARNING: push failed (credentials or empty remote). Remote URL still set.")
+    # Update .gitmodules to use remote URL
+    proj = Path.cwd()
+    rc = _run(["git", "config", "-f", ".gitmodules", f"submodule.{submodule_path.as_posix()}.url", url], cwd=proj)
+    if rc != 0:
+        raise typer.Exit(code=rc)
+    # Sync submodules
+    _run(["git", "submodule", "sync", "--", str(submodule_path)], cwd=proj)
+    # Stage and commit .gitmodules if changed
+    _run(["git", "add", ".gitmodules"], cwd=proj)
+    _run(["git", "commit", "-m", "chore(submodule): point ptyterm to remote"], cwd=proj)
+    typer.echo("Updated submodule URL. If push succeeded, this repo now references the remote.")
 @app.command("reply-notmine")
 def reply_notmine(
     profile: str = typer.Option("4botbsc", help="Profile name for 4bot account"),
